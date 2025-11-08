@@ -1,0 +1,18 @@
+# Stage 1: build React
+FROM node:18 AS build
+WORKDIR /app
+COPY admin-panel/package*.json ./
+RUN npm install
+COPY admin-panel/ .
+RUN npm run build
+
+# Stage 2: nginx
+FROM nginx:alpine
+# Kopiujemy React build do /admin
+COPY --from=build /app/build /usr/share/nginx/html/admin
+# Kopiujemy public HTML do /
+COPY public /usr/share/nginx/html/
+# Kopiujemy custom nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
