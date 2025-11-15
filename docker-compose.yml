@@ -16,3 +16,25 @@ services:
       - "5000:5000"
     environment:
       - NODE_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=cms_user
+      - DB_PASSWORD=cms_password
+      - DB_NAME=cms_db
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: cms_postgres
+    environment:
+      - POSTGRES_USER=cms_user
+      - POSTGRES_PASSWORD=cms_password
+      - POSTGRES_DB=cms_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

@@ -5,12 +5,20 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "migrate": "cross-env DATABASE_URL=postgres://cms_user:cms_password@localhost:5432/cms_db node-pg-migrate",
+    "migrate:up": "cross-env DATABASE_URL=postgres://cms_user:cms_password@localhost:5432/cms_db node-pg-migrate up",
+    "migrate:down": "cross-env DATABASE_URL=postgres://cms_user:cms_password@localhost:5432/cms_db node-pg-migrate down",
+    "migrate:create": "node-pg-migrate create"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^5.1.0"
+    "cross-env": "^10.1.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "node-pg-migrate": "^8.0.3",
+    "pg": "^8.16.3"
   }
 }
