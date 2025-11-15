@@ -30,6 +30,12 @@ exports.up = (pgm) => {
     },
   });
 
+  // Dodaj domyślnego administratora (login: admin, hasło: admin)
+  pgm.sql(`
+    INSERT INTO administrator (name, surname, email, password)
+    VALUES ('Admin', 'System', 'admin@cms.local', '$2b$10$XzlxSyPMesYTwFkfYoEuquaNPqNVlJr0N6.3OQhRV/nmHcToRcTx6')
+  `);
+
   // Tabela Currency
   pgm.createTable("currency", {
     id: "id",

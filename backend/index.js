@@ -1,7 +1,18 @@
 const express = require("express");
+const cors = require("cors");
+const bcrypt = require("bcrypt");
 const { query, testConnection } = require("./db");
+const { authenticateToken, generateToken } = require("./authMiddleware");
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Middleware CORS - pozwala na żądania z admin-panel
+app.use(
+  cors({
+    origin: ["http://localhost:3001", "http://localhost:3000"],
+    credentials: true,
+  })
+);
 
 // Middleware do parsowania JSON
 app.use(express.json());
@@ -49,14 +60,18 @@ app.get("/api/administrators/:id", async (req, res) => {
   }
 });
 
-// Utwórz nowego administratora
-app.post("/api/administrators", async (req, res) => {
+// Utwórz nowego administratora (wymaga tokena)
+app.post("/api/administrators", authenticateToken, async (req, res) => {
   try {
     const { name, surname, email, password } = req.body;
-    // UWAGA: W produkcji należy hashować hasło (np. używając bcrypt)
+
+    // Hashuj hasło przed zapisaniem
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
     const result = await query(
       "INSERT INTO administrator (name, surname, email, password) VALUES ($1, $2, $3, $4) RETURNING id, name, surname, email",
-      [name, surname, email, password]
+      [name, surname, email, hashedPassword]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -64,8 +79,8 @@ app.post("/api/administrators", async (req, res) => {
   }
 });
 
-// Zaktualizuj administratora
-app.put("/api/administrators/:id", async (req, res) => {
+// Zaktualizuj administratora (wymaga tokena)
+app.put("/api/administrators/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, surname, email } = req.body;
@@ -84,8 +99,8 @@ app.put("/api/administrators/:id", async (req, res) => {
   }
 });
 
-// Usuń administratora
-app.delete("/api/administrators/:id", async (req, res) => {
+// Usuń administratora (wymaga tokena)
+app.delete("/api/administrators/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await query(
@@ -98,6 +113,50 @@ app.delete("/api/administrators/:id", async (req, res) => {
         .json({ success: false, error: "Administrator nie znaleziony" });
     }
     res.json({ success: true, message: "Administrator został usunięty" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Logowanie administratora
+app.post("/api/administrators/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Pobierz administratora po emailu
+    const result = await query(
+      "SELECT id, name, surname, email, password FROM administrator WHERE email = $1",
+      [email]
+    );
+
+    if (result.rows.length === 0) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Nieprawidłowy email lub hasło" });
+    }
+
+    const admin = result.rows[0];
+
+    // Sprawdź hasło
+    const passwordMatch = await bcrypt.compare(password, admin.password);
+
+    if (!passwordMatch) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Nieprawidłowy email lub hasło" });
+    }
+
+    // Wygeneruj JWT token
+    const { password: _, ...adminData } = admin;
+    const token = generateToken(adminData);
+
+    // Zwróć token i dane administratora (bez hasła)
+    res.json({
+      success: true,
+      message: "Zalogowano pomyślnie",
+      token: token,
+      data: adminData,
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -148,8 +207,8 @@ app.get("/api/pages/:id", async (req, res) => {
   }
 });
 
-// Utwórz nową stronę
-app.post("/api/pages", async (req, res) => {
+// Utwórz nową stronę (wymaga tokena)
+app.post("/api/pages", authenticateToken, async (req, res) => {
   try {
     const {
       title,
@@ -169,8 +228,8 @@ app.post("/api/pages", async (req, res) => {
   }
 });
 
-// Zaktualizuj stronę
-app.put("/api/pages/:id", async (req, res) => {
+// Zaktualizuj stronę (wymaga tokena)
+app.put("/api/pages/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -204,8 +263,8 @@ app.put("/api/pages/:id", async (req, res) => {
   }
 });
 
-// Usuń stronę
-app.delete("/api/pages/:id", async (req, res) => {
+// Usuń stronę (wymaga tokena)
+app.delete("/api/pages/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await query("DELETE FROM page WHERE id = $1 RETURNING id", [
@@ -239,8 +298,8 @@ app.get("/api/menu-items", async (req, res) => {
   }
 });
 
-// Utwórz nową pozycję menu
-app.post("/api/menu-items", async (req, res) => {
+// Utwórz nową pozycję menu (wymaga tokena)
+app.post("/api/menu-items", authenticateToken, async (req, res) => {
   try {
     const { name, description, price, currency_id } = req.body;
     const result = await query(
@@ -253,8 +312,8 @@ app.post("/api/menu-items", async (req, res) => {
   }
 });
 
-// Zaktualizuj pozycję menu
-app.put("/api/menu-items/:id", async (req, res) => {
+// Zaktualizuj pozycję menu (wymaga tokena)
+app.put("/api/menu-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, price, currency_id } = req.body;
@@ -273,8 +332,8 @@ app.put("/api/menu-items/:id", async (req, res) => {
   }
 });
 
-// Usuń pozycję menu
-app.delete("/api/menu-items/:id", async (req, res) => {
+// Usuń pozycję menu (wymaga tokena)
+app.delete("/api/menu-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await query(
@@ -304,8 +363,8 @@ app.get("/api/chefs", async (req, res) => {
   }
 });
 
-// Utwórz nowego kucharza
-app.post("/api/chefs", async (req, res) => {
+// Utwórz nowego kucharza (wymaga tokena)
+app.post("/api/chefs", authenticateToken, async (req, res) => {
   try {
     const {
       name,
@@ -332,8 +391,8 @@ app.post("/api/chefs", async (req, res) => {
   }
 });
 
-// Zaktualizuj kucharza
-app.put("/api/chefs/:id", async (req, res) => {
+// Zaktualizuj kucharza (wymaga tokena)
+app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -367,8 +426,8 @@ app.put("/api/chefs/:id", async (req, res) => {
   }
 });
 
-// Usuń kucharza
-app.delete("/api/chefs/:id", async (req, res) => {
+// Usuń kucharza (wymaga tokena)
+app.delete("/api/chefs/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await query(
@@ -406,8 +465,8 @@ app.get("/api/navigation", async (req, res) => {
   }
 });
 
-// Utwórz nowy element nawigacji
-app.post("/api/navigation", async (req, res) => {
+// Utwórz nowy element nawigacji (wymaga tokena)
+app.post("/api/navigation", authenticateToken, async (req, res) => {
   try {
     const { title, position, url, is_active, navigation_id, creator_id } =
       req.body;
@@ -428,8 +487,8 @@ app.post("/api/navigation", async (req, res) => {
   }
 });
 
-// Zaktualizuj element nawigacji
-app.put("/api/navigation/:id", async (req, res) => {
+// Zaktualizuj element nawigacji (wymaga tokena)
+app.put("/api/navigation/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -455,8 +514,8 @@ app.put("/api/navigation/:id", async (req, res) => {
   }
 });
 
-// Usuń element nawigacji
-app.delete("/api/navigation/:id", async (req, res) => {
+// Usuń element nawigacji (wymaga tokena)
+app.delete("/api/navigation/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await query(
@@ -495,8 +554,8 @@ app.get("/api/slider-images", async (req, res) => {
   }
 });
 
-// Utwórz nowy obraz slidera
-app.post("/api/slider-images", async (req, res) => {
+// Utwórz nowy obraz slidera (wymaga tokena)
+app.post("/api/slider-images", authenticateToken, async (req, res) => {
   try {
     const { image_url, is_active, creator_id } = req.body;
     const result = await query(
@@ -509,8 +568,8 @@ app.post("/api/slider-images", async (req, res) => {
   }
 });
 
-// Zaktualizuj obraz slidera
-app.put("/api/slider-images/:id", async (req, res) => {
+// Zaktualizuj obraz slidera (wymaga tokena)
+app.put("/api/slider-images/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { image_url, is_active, last_modificator_id } = req.body;
@@ -529,8 +588,8 @@ app.put("/api/slider-images/:id", async (req, res) => {
   }
 });
 
-// Usuń obraz slidera
-app.delete("/api/slider-images/:id", async (req, res) => {
+// Usuń obraz slidera (wymaga tokena)
+app.delete("/api/slider-images/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await query(
@@ -587,8 +646,8 @@ app.get("/api/configuration/:key", async (req, res) => {
   }
 });
 
-// Utwórz nowe ustawienie
-app.post("/api/configuration", async (req, res) => {
+// Utwórz nowe ustawienie (wymaga tokena)
+app.post("/api/configuration", authenticateToken, async (req, res) => {
   try {
     const { key, value, description, is_active, creator_id } = req.body;
     const result = await query(
@@ -607,8 +666,8 @@ app.post("/api/configuration", async (req, res) => {
   }
 });
 
-// Zaktualizuj ustawienie
-app.put("/api/configuration/:key", async (req, res) => {
+// Zaktualizuj ustawienie (wymaga tokena)
+app.put("/api/configuration/:key", authenticateToken, async (req, res) => {
   try {
     const { key } = req.params;
     const { value, description, is_active, last_modificator_id } = req.body;
@@ -627,8 +686,8 @@ app.put("/api/configuration/:key", async (req, res) => {
   }
 });
 
-// Usuń ustawienie
-app.delete("/api/configuration/:key", async (req, res) => {
+// Usuń ustawienie (wymaga tokena)
+app.delete("/api/configuration/:key", authenticateToken, async (req, res) => {
   try {
     const { key } = req.params;
     const result = await query(
@@ -658,8 +717,8 @@ app.get("/api/currencies", async (req, res) => {
   }
 });
 
-// Utwórz nową walutę
-app.post("/api/currencies", async (req, res) => {
+// Utwórz nową walutę (wymaga tokena)
+app.post("/api/currencies", authenticateToken, async (req, res) => {
   try {
     const { code, name } = req.body;
     const result = await query(
@@ -692,8 +751,8 @@ app.get("/api/contact-types", async (req, res) => {
   }
 });
 
-// Utwórz nowy typ kontaktu
-app.post("/api/contact-types", async (req, res) => {
+// Utwórz nowy typ kontaktu (wymaga tokena)
+app.post("/api/contact-types", authenticateToken, async (req, res) => {
   try {
     const { value, creator_id } = req.body;
     const result = await query(
@@ -729,8 +788,8 @@ app.get("/api/contact-items", async (req, res) => {
   }
 });
 
-// Utwórz nowy element kontaktu
-app.post("/api/contact-items", async (req, res) => {
+// Utwórz nowy element kontaktu (wymaga tokena)
+app.post("/api/contact-items", authenticateToken, async (req, res) => {
   try {
     const { value, contact_type_id, is_active, creator_id } = req.body;
     const result = await query(
@@ -748,8 +807,8 @@ app.post("/api/contact-items", async (req, res) => {
   }
 });
 
-// Zaktualizuj element kontaktu
-app.put("/api/contact-items/:id", async (req, res) => {
+// Zaktualizuj element kontaktu (wymaga tokena)
+app.put("/api/contact-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { value, contact_type_id, is_active, last_modificator_id } = req.body;
@@ -768,8 +827,8 @@ app.put("/api/contact-items/:id", async (req, res) => {
   }
 });
 
-// Usuń element kontaktu
-app.delete("/api/contact-items/:id", async (req, res) => {
+// Usuń element kontaktu (wymaga tokena)
+app.delete("/api/contact-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await query(
