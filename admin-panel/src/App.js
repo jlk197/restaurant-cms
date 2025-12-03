@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import Login from "./screens/login";
-import Dashboard from "./screens/dashboard";
+import SignIn from "./pages/Login/SignIn";
+import Home from "./pages/Dashboard/Home";
+import UserProfiles from "./pages/Admins/UserProfiles";
+import AppLayout from "./layout/AppLayout";
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -13,14 +15,19 @@ function App() {
     }
   }, []);
 
-  const handleLoginSuccess = ({ token }) => {
+  const handleLoginSuccess = (token) => {
     localStorage.setItem("authToken", token);
     setIsLoggedIn(true);
   };
 
   const handleLogout = () => {
+    console.log("Logging out...");
     localStorage.removeItem("authToken");
     setIsLoggedIn(false);
+  };
+
+  const ProtectedRoute = ({ children }) => {
+    return isLoggedIn ? children : <Navigate to="/login" replace />;
   };
 
   return (
@@ -30,19 +37,9 @@ function App() {
           path="/login"
           element={
             !isLoggedIn ? (
-              <Login onLoginSuccess={handleLoginSuccess} />
+              <SignIn onLoginSuccess={handleLoginSuccess} />
             ) : (
               <Navigate to="/dashboard" replace />
-            )
-          }
-        />
-        <Route
-          path="/dashboard"
-          element={
-            isLoggedIn ? (
-              <Dashboard onLogout={handleLogout} />
-            ) : (
-              <Navigate to="/login" replace />
             )
           }
         />
@@ -50,11 +47,20 @@ function App() {
         <Route
           path="/"
           element={
-            isLoggedIn ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<Home onLogout={handleLogout} />} />
+          <Route path="administrators" element={<UserProfiles />} />
+        </Route>
+
+        <Route
+          path="*"
+          element={
+            <Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />
           }
         />
       </Routes>
