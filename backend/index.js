@@ -41,13 +41,12 @@ app.get("/api/administrators", async (req, res) => {
   }
 });
 
-// Pobierz administratora po ID
-app.get("/api/administrators/:id", async (req, res) => {
+// Pobierz aktualnie zalogowanego administratora
+app.get("/api/administrators/me", authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
     const result = await query(
       "SELECT id, name, surname, email FROM administrator WHERE id = $1",
-      [id]
+      [req.user.id]
     );
     if (result.rows.length === 0) {
       return res
