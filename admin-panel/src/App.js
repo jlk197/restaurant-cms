@@ -4,6 +4,7 @@ import SignIn from "./pages/Login/SignIn";
 import Home from "./pages/Dashboard/Home";
 import UserProfiles from "./pages/Admins/UserProfiles";
 import AppLayout from "./layout/AppLayout";
+import Configuration from "./pages/Configuration";
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -55,6 +56,7 @@ function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Home onLogout={handleLogout} />} />
           <Route path="administrators" element={<UserProfiles />} />
+          <Route path="configuration" element={<Configuration />} />
         </Route>
 
         <Route

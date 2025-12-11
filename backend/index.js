@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
+const multer = require("multer");
+const path = require("path");
 const { query, testConnection } = require("./db");
 const { authenticateToken, generateToken } = require("./authMiddleware");
 const app = express();
@@ -17,6 +19,43 @@ app.use(
 // Middleware do parsowania JSON
 app.use(express.json());
 
+// Serwowanie statycznych plików z folderu public
+app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
+
+// Konfiguracja multer do uploadu plików
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "public/uploads/");
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(
+      null,
+      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
+    );
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(
+      path.extname(file.originalname).toLowerCase()
+    );
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error("Tylko pliki graficzne są dozwolone!"));
+    }
+  },
+});
+
 // Test połączenia z bazą danych przy starcie
 testConnection().catch((err) => {
   console.error("Nie udało się połączyć z bazą danych:", err);
@@ -26,6 +65,32 @@ testConnection().catch((err) => {
 app.get("/api/hello", (req, res) => {
   res.json({ message: "Hello from CMS backend!" });
 });
+
+// === ENDPOINT DO UPLOADU PLIKÓW ===
+app.post(
+  "/api/upload",
+  authenticateToken,
+  upload.single("image"),
+  (req, res) => {
+    try {
+      if (!req.file) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Nie przesłano pliku" });
+      }
+
+      // Zwróć URL do przesłanego pliku
+      const fileUrl = `/uploads/${req.file.filename}`;
+      res.json({
+        success: true,
+        url: fileUrl,
+        filename: req.file.filename,
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);
 
 // === ENDPOINTY DLA ADMINISTRATORÓW ===
 
@@ -618,7 +683,6 @@ app.get("/api/configuration", async (req, res) => {
       FROM configuration c
       LEFT JOIN administrator a1 ON c.creator_id = a1.id
       LEFT JOIN administrator a2 ON c.last_modificator_id = a2.id
-      WHERE c.is_active = true
       ORDER BY c.key
     `);
     res.json({ success: true, data: result.rows });
@@ -648,18 +712,43 @@ app.get("/api/configuration/:key", async (req, res) => {
 // Utwórz nowe ustawienie (wymaga tokena)
 app.post("/api/configuration", authenticateToken, async (req, res) => {
   try {
-    const { key, value, description, is_active, creator_id } = req.body;
+    const { key, value, description, type } = req.body;
+    const userId = req.user.id;
     const result = await query(
-      "INSERT INTO configuration (key, value, description, is_active, creator_id) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-      [
-        key,
-        value,
-        description,
-        is_active !== undefined ? is_active : true,
-        creator_id,
-      ]
+      "INSERT INTO configuration (key, value, description, type, creator_id) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [key, value, description, type || "text", userId]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Zaktualizuj wiele ustawień naraz (wymaga tokena)
+app.put("/api/configuration", authenticateToken, async (req, res) => {
+  try {
+    const { configurations } = req.body;
+    const userId = req.user.id; // ID z tokena JWT
+
+    if (!configurations || !Array.isArray(configurations)) {
+      return res.status(400).json({
+        success: false,
+        error: "Brak tablicy konfiguracji",
+      });
+    }
+
+    // Aktualizuj każdą konfigurację
+    const updatePromises = configurations.map((config) =>
+      query(
+        "UPDATE configuration SET value = $1, last_modificator_id = $2, last_modification_time = CURRENT_TIMESTAMP WHERE key = $3 RETURNING *",
+        [config.value, userId, config.key]
+      )
+    );
+
+    const results = await Promise.all(updatePromises);
+    const updatedConfigs = results.map((r) => r.rows[0]);
+
+    res.json({ success: true, data: updatedConfigs });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -669,10 +758,11 @@ app.post("/api/configuration", authenticateToken, async (req, res) => {
 app.put("/api/configuration/:key", authenticateToken, async (req, res) => {
   try {
     const { key } = req.params;
-    const { value, description, is_active, last_modificator_id } = req.body;
+    const { value, description, type } = req.body;
+    const userId = req.user.id;
     const result = await query(
-      "UPDATE configuration SET value = $1, description = $2, is_active = $3, last_modificator_id = $4, last_modification_time = CURRENT_TIMESTAMP WHERE key = $5 RETURNING *",
-      [value, description, is_active, last_modificator_id, key]
+      "UPDATE configuration SET value = $1, description = $2, type = $3, last_modificator_id = $4, last_modification_time = CURRENT_TIMESTAMP WHERE key = $5 RETURNING *",
+      [value, description, type, userId, key]
     );
     if (result.rows.length === 0) {
       return res

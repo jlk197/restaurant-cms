@@ -73,6 +73,9 @@ exports.up = (pgm) => {
     },
   });
 
+  // Tabela Configuration - najpierw utwórz typ enum
+  pgm.createType("configuration_type", ["text", "richText", "image"]);
+
   // Tabela Configuration
   pgm.createTable("configuration", {
     key: {
@@ -87,10 +90,10 @@ exports.up = (pgm) => {
       type: "varchar(255)",
       notNull: true,
     },
-    is_active: {
-      type: "boolean",
+    type: {
+      type: "configuration_type",
       notNull: true,
-      default: true,
+      default: "text",
     },
     creator_id: {
       type: "integer",
@@ -109,6 +112,15 @@ exports.up = (pgm) => {
       references: "administrator",
     },
   });
+
+  // Dodaj przykładowe rekordy konfiguracji
+  pgm.sql(`
+    INSERT INTO configuration (key, value, description, type, creator_id)
+    VALUES
+      ('site_name', 'Restauracja CMS', 'Nazwa strony wyświetlana w nagłówku', 'richText', 1),
+      ('contact_email', 'kontakt@restauracja.pl', 'Główny adres email do kontaktu', 'text', 1),
+      ('logo', 'https://www.shutterstock.com/shutterstock/photos/454784548/display_1500/stock-vector-restaurant-logo-food-service-vector-logo-design-template-insignia-logotype-label-or-badge-454784548.jpg', 'Logo restauracja', 'image', 1)
+  `);
 
   // Tabela Contact_Item
   pgm.createTable("contact_item", {
@@ -420,6 +432,7 @@ exports.down = (pgm) => {
   pgm.dropTable("page");
   pgm.dropTable("contact_item");
   pgm.dropTable("configuration");
+  pgm.dropType("configuration_type");
   pgm.dropTable("contact_type");
   pgm.dropTable("currency");
   pgm.dropTable("administrator");
