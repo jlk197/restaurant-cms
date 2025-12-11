@@ -56,7 +56,7 @@ export default function SignInForm({ onLoginSuccess }: SignInFormProps) {
           />
         </div>
         <div>
-          <Label>Hasło</Label>
+          <Label>Password</Label>
           <div className="relative">
             <Input
               type={showPassword ? "text" : "password"}
@@ -80,7 +80,7 @@ export default function SignInForm({ onLoginSuccess }: SignInFormProps) {
         </div>
         <div className="pt-3">
           <Button className="w-full" size="sm" disabled={isLoading}>
-            {isLoading ? "Logowanie..." : "Zaloguj się"}
+            {isLoading ? "Logging in..." : "Sign In"}
           </Button>
         </div>
       </div>

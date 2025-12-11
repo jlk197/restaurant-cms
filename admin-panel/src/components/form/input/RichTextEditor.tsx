@@ -11,7 +11,7 @@ interface RichTextEditorProps {
 const RichTextEditor: React.FC<RichTextEditorProps> = ({
   value,
   onChange,
-  placeholder = "Wprowadź tekst...",
+  placeholder = "Enter text...",
 }) => {
   const modules = {
     toolbar: [

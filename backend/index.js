@@ -16,13 +16,13 @@ app.use(
   })
 );
 
-// Middleware do parsowania JSON
+// Middleware for parsing JSON
 app.use(express.json());
 
-// Serwowanie statycznych plików z folderu public
+// Serve static files from public folder
 app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 
-// Konfiguracja multer do uploadu plików
+// Multer configuration for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, "public/uploads/");
@@ -51,22 +51,22 @@ const upload = multer({
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error("Tylko pliki graficzne są dozwolone!"));
+      cb(new Error("Only image files are allowed!"));
     }
   },
 });
 
-// Test połączenia z bazą danych przy starcie
+// Test database connection on startup
 testConnection().catch((err) => {
-  console.error("Nie udało się połączyć z bazą danych:", err);
+  console.error("Failed to connect to database:", err);
 });
 
-// Przykładowa trasa API
+// Example API route
 app.get("/api/hello", (req, res) => {
   res.json({ message: "Hello from CMS backend!" });
 });
 
-// === ENDPOINT DO UPLOADU PLIKÓW ===
+// === FILE UPLOAD ENDPOINT ===
 app.post(
   "/api/upload",
   authenticateToken,
@@ -76,10 +76,10 @@ app.post(
       if (!req.file) {
         return res
           .status(400)
-          .json({ success: false, error: "Nie przesłano pliku" });
+          .json({ success: false, error: "No file uploaded" });
       }
 
-      // Zwróć URL do przesłanego pliku
+      // Return URL to uploaded file
       const fileUrl = `/uploads/${req.file.filename}`;
       res.json({
         success: true,
@@ -92,9 +92,9 @@ app.post(
   }
 );
 
-// === ENDPOINTY DLA ADMINISTRATORÓW ===
+// === ADMINISTRATOR ENDPOINTS ===
 
-// Pobierz wszystkich administratorów
+// Get all administrators
 app.get("/api/administrators", async (req, res) => {
   try {
     const result = await query(
@@ -106,7 +106,7 @@ app.get("/api/administrators", async (req, res) => {
   }
 });
 
-// Pobierz aktualnie zalogowanego administratora
+// Get currently logged in administrator
 app.get("/api/administrators/me", authenticateToken, async (req, res) => {
   try {
     const result = await query(
@@ -116,7 +116,7 @@ app.get("/api/administrators/me", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Administrator nie znaleziony" });
+        .json({ success: false, error: "Administrator not found" });
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -124,12 +124,12 @@ app.get("/api/administrators/me", authenticateToken, async (req, res) => {
   }
 });
 
-// Utwórz nowego administratora (wymaga tokena)
+// Create new administrator (requires token)
 app.post("/api/administrators", authenticateToken, async (req, res) => {
   try {
     const { name, surname, email, password } = req.body;
 
-    // Hashuj hasło przed zapisaniem
+    // Hash password before saving
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
@@ -143,7 +143,7 @@ app.post("/api/administrators", authenticateToken, async (req, res) => {
   }
 });
 
-// Zaktualizuj administratora (wymaga tokena)
+// Update administratora (requires token)
 app.put("/api/administrators/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -155,7 +155,7 @@ app.put("/api/administrators/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Administrator nie znaleziony" });
+        .json({ success: false, error: "Administrator not found" });
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -163,7 +163,7 @@ app.put("/api/administrators/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// Usuń administratora (wymaga tokena)
+// Delete administrator (requires token)
 app.delete("/api/administrators/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -174,20 +174,20 @@ app.delete("/api/administrators/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Administrator nie znaleziony" });
+        .json({ success: false, error: "Administrator not found" });
     }
-    res.json({ success: true, message: "Administrator został usunięty" });
+    res.json({ success: true, message: "Administrator deleted successfully" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Logowanie administratora
+// Administrator login
 app.post("/api/administrators/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Pobierz administratora po emailu
+    // Get administrator by email
     const result = await query(
       "SELECT id, name, surname, email, password FROM administrator WHERE email = $1",
       [email]
@@ -196,28 +196,28 @@ app.post("/api/administrators/login", async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(401)
-        .json({ success: false, error: "Nieprawidłowy email lub hasło" });
+        .json({ success: false, error: "Invalid email or password" });
     }
 
     const admin = result.rows[0];
 
-    // Sprawdź hasło
+    // Check password
     const passwordMatch = await bcrypt.compare(password, admin.password);
 
     if (!passwordMatch) {
       return res
         .status(401)
-        .json({ success: false, error: "Nieprawidłowy email lub hasło" });
+        .json({ success: false, error: "Invalid email or password" });
     }
 
-    // Wygeneruj JWT token
+    // Generate JWT token
     const { password: _, ...adminData } = admin;
     const token = generateToken(adminData);
 
-    // Zwróć token i dane administratora (bez hasła)
+    // Return token and administrator data (without password)
     res.json({
       success: true,
-      message: "Zalogowano pomyślnie",
+      message: "Logged in successfully",
       token: token,
       data: adminData,
     });
@@ -226,9 +226,9 @@ app.post("/api/administrators/login", async (req, res) => {
   }
 });
 
-// === ENDPOINTY DLA STRON (PAGES) ===
+// === PAGE ENDPOINTS ===
 
-// Pobierz wszystkie strony
+// Get all pages
 app.get("/api/pages", async (req, res) => {
   try {
     const result = await query(`
@@ -246,7 +246,7 @@ app.get("/api/pages", async (req, res) => {
   }
 });
 
-// Pobierz stronę po ID
+// Get stronę po ID
 app.get("/api/pages/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -263,7 +263,7 @@ app.get("/api/pages/:id", async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Strona nie znaleziona" });
+        .json({ success: false, error: "Page not founda" });
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -271,7 +271,7 @@ app.get("/api/pages/:id", async (req, res) => {
   }
 });
 
-// Utwórz nową stronę (wymaga tokena)
+// Utwórz nową stronę (requires token)
 app.post("/api/pages", authenticateToken, async (req, res) => {
   try {
     const {
@@ -292,7 +292,7 @@ app.post("/api/pages", authenticateToken, async (req, res) => {
   }
 });
 
-// Zaktualizuj stronę (wymaga tokena)
+// Update stronę (requires token)
 app.put("/api/pages/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -319,7 +319,7 @@ app.put("/api/pages/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Strona nie znaleziona" });
+        .json({ success: false, error: "Page not founda" });
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -327,7 +327,7 @@ app.put("/api/pages/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// Usuń stronę (wymaga tokena)
+// Usuń stronę (requires token)
 app.delete("/api/pages/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -337,17 +337,17 @@ app.delete("/api/pages/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Strona nie znaleziona" });
+        .json({ success: false, error: "Page not founda" });
     }
-    res.json({ success: true, message: "Strona została usunięta" });
+    res.json({ success: true, message: "Page została usunięta" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// === ENDPOINTY DLA MENU ===
+// === ENDPOINTS FOR MENU ===
 
-// Pobierz wszystkie pozycje menu
+// Get wszystkie pozycje menu
 app.get("/api/menu-items", async (req, res) => {
   try {
     const result = await query(`
@@ -362,7 +362,7 @@ app.get("/api/menu-items", async (req, res) => {
   }
 });
 
-// Utwórz nową pozycję menu (wymaga tokena)
+// Utwórz nową pozycję menu (requires token)
 app.post("/api/menu-items", authenticateToken, async (req, res) => {
   try {
     const { name, description, price, currency_id } = req.body;
@@ -376,7 +376,7 @@ app.post("/api/menu-items", authenticateToken, async (req, res) => {
   }
 });
 
-// Zaktualizuj pozycję menu (wymaga tokena)
+// Update pozycję menu (requires token)
 app.put("/api/menu-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -388,7 +388,7 @@ app.put("/api/menu-items/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Pozycja menu nie znaleziona" });
+        .json({ success: false, error: "Menu item not founda" });
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -396,7 +396,7 @@ app.put("/api/menu-items/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// Usuń pozycję menu (wymaga tokena)
+// Usuń pozycję menu (requires token)
 app.delete("/api/menu-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -407,17 +407,17 @@ app.delete("/api/menu-items/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Pozycja menu nie znaleziona" });
+        .json({ success: false, error: "Menu item not founda" });
     }
-    res.json({ success: true, message: "Pozycja menu została usunięta" });
+    res.json({ success: true, message: "Menu item została usunięta" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// === ENDPOINTY DLA KUCHARZY (CHEFS) ===
+// === ENDPOINTS FOR ChefY (CHEFS) ===
 
-// Pobierz wszystkich kucharzy
+// Get wszystkich Chefy
 app.get("/api/chefs", async (req, res) => {
   try {
     const result = await query("SELECT * FROM chef_item ORDER BY id");
@@ -427,7 +427,7 @@ app.get("/api/chefs", async (req, res) => {
   }
 });
 
-// Utwórz nowego kucharza (wymaga tokena)
+// Utwórz nowego Chefa (requires token)
 app.post("/api/chefs", authenticateToken, async (req, res) => {
   try {
     const {
@@ -455,7 +455,7 @@ app.post("/api/chefs", authenticateToken, async (req, res) => {
   }
 });
 
-// Zaktualizuj kucharza (wymaga tokena)
+// Update Chefa (requires token)
 app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -482,7 +482,7 @@ app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Kucharz nie znaleziony" });
+        .json({ success: false, error: "Chef not foundy" });
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -490,7 +490,7 @@ app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// Usuń kucharza (wymaga tokena)
+// Usuń Chefa (requires token)
 app.delete("/api/chefs/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -501,17 +501,17 @@ app.delete("/api/chefs/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Kucharz nie znaleziony" });
+        .json({ success: false, error: "Chef not foundy" });
     }
-    res.json({ success: true, message: "Kucharz został usunięty" });
+    res.json({ success: true, message: "Chef został usunięty" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// === ENDPOINTY DLA NAWIGACJI ===
+// === ENDPOINTS FOR NAWIGACJI ===
 
-// Pobierz wszystkie elementy nawigacji
+// Get wszystkie elementy nawigacji
 app.get("/api/navigation", async (req, res) => {
   try {
     const result = await query(`
@@ -529,7 +529,7 @@ app.get("/api/navigation", async (req, res) => {
   }
 });
 
-// Utwórz nowy element nawigacji (wymaga tokena)
+// Utwórz nowy Navigation item (requires token)
 app.post("/api/navigation", authenticateToken, async (req, res) => {
   try {
     const { title, position, url, is_active, navigation_id, creator_id } =
@@ -551,7 +551,7 @@ app.post("/api/navigation", authenticateToken, async (req, res) => {
   }
 });
 
-// Zaktualizuj element nawigacji (wymaga tokena)
+// Update Navigation item (requires token)
 app.put("/api/navigation/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -570,7 +570,7 @@ app.put("/api/navigation/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Element nawigacji nie znaleziony" });
+        .json({ success: false, error: "Navigation item not foundy" });
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -578,7 +578,7 @@ app.put("/api/navigation/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// Usuń element nawigacji (wymaga tokena)
+// Usuń Navigation item (requires token)
 app.delete("/api/navigation/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -589,17 +589,17 @@ app.delete("/api/navigation/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Element nawigacji nie znaleziony" });
+        .json({ success: false, error: "Navigation item not foundy" });
     }
-    res.json({ success: true, message: "Element nawigacji został usunięty" });
+    res.json({ success: true, message: "Navigation item został usunięty" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// === ENDPOINTY DLA SLIDERÓW ===
+// === ENDPOINTS FOR SLIDERÓW ===
 
-// Pobierz wszystkie obrazy slidera
+// Get wszystkie obrazy slidera
 app.get("/api/slider-images", async (req, res) => {
   try {
     const result = await query(`
@@ -618,7 +618,7 @@ app.get("/api/slider-images", async (req, res) => {
   }
 });
 
-// Utwórz nowy obraz slidera (wymaga tokena)
+// Utwórz nowy Slider image (requires token)
 app.post("/api/slider-images", authenticateToken, async (req, res) => {
   try {
     const { image_url, is_active, creator_id } = req.body;
@@ -632,7 +632,7 @@ app.post("/api/slider-images", authenticateToken, async (req, res) => {
   }
 });
 
-// Zaktualizuj obraz slidera (wymaga tokena)
+// Update Slider image (requires token)
 app.put("/api/slider-images/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -644,7 +644,7 @@ app.put("/api/slider-images/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Obraz slidera nie znaleziony" });
+        .json({ success: false, error: "Slider image not foundy" });
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -652,7 +652,7 @@ app.put("/api/slider-images/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// Usuń obraz slidera (wymaga tokena)
+// Usuń Slider image (requires token)
 app.delete("/api/slider-images/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -663,17 +663,17 @@ app.delete("/api/slider-images/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Obraz slidera nie znaleziony" });
+        .json({ success: false, error: "Slider image not foundy" });
     }
-    res.json({ success: true, message: "Obraz slidera został usunięty" });
+    res.json({ success: true, message: "Slider image został usunięty" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// === ENDPOINTY DLA KONFIGURACJI ===
+// === ENDPOINTS FOR KONFIGURACJI ===
 
-// Pobierz wszystkie ustawienia konfiguracji
+// Get wszystkie ustawienia konfiguracji
 app.get("/api/configuration", async (req, res) => {
   try {
     const result = await query(`
@@ -691,7 +691,7 @@ app.get("/api/configuration", async (req, res) => {
   }
 });
 
-// Pobierz ustawienie po kluczu
+// Get Setting po kluczu
 app.get("/api/configuration/:key", async (req, res) => {
   try {
     const { key } = req.params;
@@ -701,7 +701,7 @@ app.get("/api/configuration/:key", async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Ustawienie nie znalezione" });
+        .json({ success: false, error: "Setting not founde" });
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -709,7 +709,7 @@ app.get("/api/configuration/:key", async (req, res) => {
   }
 });
 
-// Utwórz nowe ustawienie (wymaga tokena)
+// Utwórz nowe Setting (requires token)
 app.post("/api/configuration", authenticateToken, async (req, res) => {
   try {
     const { key, value, description, type } = req.body;
@@ -724,7 +724,7 @@ app.post("/api/configuration", authenticateToken, async (req, res) => {
   }
 });
 
-// Zaktualizuj wiele ustawień naraz (wymaga tokena)
+// Update wiele ustawień naraz (requires token)
 app.put("/api/configuration", authenticateToken, async (req, res) => {
   try {
     const { configurations } = req.body;
@@ -733,7 +733,7 @@ app.put("/api/configuration", authenticateToken, async (req, res) => {
     if (!configurations || !Array.isArray(configurations)) {
       return res.status(400).json({
         success: false,
-        error: "Brak tablicy konfiguracji",
+        error: "Missing configuration array",
       });
     }
 
@@ -754,7 +754,7 @@ app.put("/api/configuration", authenticateToken, async (req, res) => {
   }
 });
 
-// Zaktualizuj ustawienie (wymaga tokena)
+// Update Setting (requires token)
 app.put("/api/configuration/:key", authenticateToken, async (req, res) => {
   try {
     const { key } = req.params;
@@ -767,7 +767,7 @@ app.put("/api/configuration/:key", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Ustawienie nie znalezione" });
+        .json({ success: false, error: "Setting not founde" });
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -775,7 +775,7 @@ app.put("/api/configuration/:key", authenticateToken, async (req, res) => {
   }
 });
 
-// Usuń ustawienie (wymaga tokena)
+// Usuń Setting (requires token)
 app.delete("/api/configuration/:key", authenticateToken, async (req, res) => {
   try {
     const { key } = req.params;
@@ -786,17 +786,17 @@ app.delete("/api/configuration/:key", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Ustawienie nie znalezione" });
+        .json({ success: false, error: "Setting not founde" });
     }
-    res.json({ success: true, message: "Ustawienie zostało usunięte" });
+    res.json({ success: true, message: "Setting zostało usunięte" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// === ENDPOINTY DLA WALUT ===
+// === ENDPOINTS FOR WALUT ===
 
-// Pobierz wszystkie waluty
+// Get wszystkie waluty
 app.get("/api/currencies", async (req, res) => {
   try {
     const result = await query("SELECT * FROM currency ORDER BY code");
@@ -806,7 +806,7 @@ app.get("/api/currencies", async (req, res) => {
   }
 });
 
-// Utwórz nową walutę (wymaga tokena)
+// Utwórz nową walutę (requires token)
 app.post("/api/currencies", authenticateToken, async (req, res) => {
   try {
     const { code, name } = req.body;
@@ -820,9 +820,9 @@ app.post("/api/currencies", authenticateToken, async (req, res) => {
   }
 });
 
-// === ENDPOINTY DLA TYPÓW KONTAKTU ===
+// === ENDPOINTS FOR TYPÓW KONTAKTU ===
 
-// Pobierz wszystkie typy kontaktu
+// Get wszystkie typy kontaktu
 app.get("/api/contact-types", async (req, res) => {
   try {
     const result = await query(`
@@ -840,7 +840,7 @@ app.get("/api/contact-types", async (req, res) => {
   }
 });
 
-// Utwórz nowy typ kontaktu (wymaga tokena)
+// Utwórz nowy typ kontaktu (requires token)
 app.post("/api/contact-types", authenticateToken, async (req, res) => {
   try {
     const { value, creator_id } = req.body;
@@ -854,9 +854,9 @@ app.post("/api/contact-types", authenticateToken, async (req, res) => {
   }
 });
 
-// === ENDPOINTY DLA ELEMENTÓW KONTAKTU ===
+// === ENDPOINTS FOR ELEMENTÓW KONTAKTU ===
 
-// Pobierz wszystkie elementy kontaktu
+// Get wszystkie elementy kontaktu
 app.get("/api/contact-items", async (req, res) => {
   try {
     const result = await query(`
@@ -877,7 +877,7 @@ app.get("/api/contact-items", async (req, res) => {
   }
 });
 
-// Utwórz nowy element kontaktu (wymaga tokena)
+// Utwórz nowy Contact item (requires token)
 app.post("/api/contact-items", authenticateToken, async (req, res) => {
   try {
     const { value, contact_type_id, is_active, creator_id } = req.body;
@@ -896,7 +896,7 @@ app.post("/api/contact-items", authenticateToken, async (req, res) => {
   }
 });
 
-// Zaktualizuj element kontaktu (wymaga tokena)
+// Update Contact item (requires token)
 app.put("/api/contact-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -908,7 +908,7 @@ app.put("/api/contact-items/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Element kontaktu nie znaleziony" });
+        .json({ success: false, error: "Contact item not foundy" });
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -916,7 +916,7 @@ app.put("/api/contact-items/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// Usuń element kontaktu (wymaga tokena)
+// Usuń Contact item (requires token)
 app.delete("/api/contact-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -927,9 +927,9 @@ app.delete("/api/contact-items/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Element kontaktu nie znaleziony" });
+        .json({ success: false, error: "Contact item not foundy" });
     }
-    res.json({ success: true, message: "Element kontaktu został usunięty" });
+    res.json({ success: true, message: "Contact item został usunięty" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

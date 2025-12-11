@@ -73,18 +73,19 @@ exports.up = (pgm) => {
     },
   });
 
-  // Tabela Configuration - najpierw utwórz typ enum
-  pgm.createType("configuration_type", ["text", "richText", "image"]);
+  // Configuration table - first create enum type
+  pgm.createType("configuration_type", ["text", "richText", "image", "movie"]);
 
-  // Tabela Configuration
+  // Configuration table
   pgm.createTable("configuration", {
     key: {
-      type: "varchar(20)",
+      type: "varchar(50)",
       primaryKey: true,
     },
     value: {
-      type: "varchar(255)",
-      notNull: true,
+      type: "text",
+      notNull: false,
+      default: null,
     },
     description: {
       type: "varchar(255)",
@@ -113,13 +114,19 @@ exports.up = (pgm) => {
     },
   });
 
-  // Dodaj przykładowe rekordy konfiguracji
+  // Add sample configuration records
   pgm.sql(`
     INSERT INTO configuration (key, value, description, type, creator_id)
     VALUES
-      ('site_name', 'Restauracja CMS', 'Nazwa strony wyświetlana w nagłówku', 'richText', 1),
-      ('contact_email', 'kontakt@restauracja.pl', 'Główny adres email do kontaktu', 'text', 1),
-      ('logo', 'https://www.shutterstock.com/shutterstock/photos/454784548/display_1500/stock-vector-restaurant-logo-food-service-vector-logo-design-template-insignia-logotype-label-or-badge-454784548.jpg', 'Logo restauracja', 'image', 1)
+      ('site_name', NULL, 'Site name displayed in header', 'richText', 1),
+      ('contact_email', NULL, 'Main contact email address', 'text', 1),
+      ('header_logo', NULL, 'Restaurant logo displayed in header', 'image', 1),
+      ('slider_logo', NULL, 'Restaurant logo displayed in slider', 'image', 1),
+      ('about_us_content', NULL, 'Content of "About us" section', 'richText', 1),
+      ('about_us_video', NULL, 'Video displayed next to "About us" section', 'movie', 1),
+      ('our_menu_header', NULL, 'Header of "Our menu" section', 'text', 1),
+      ('our_chefs_header', NULL, 'Header of "Our chefs" section', 'text', 1),
+      ('contact_us_content', NULL, 'Content of "Contact us" section', 'richText', 1)
   `);
 
   // Tabela Contact_Item

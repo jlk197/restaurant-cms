@@ -3,6 +3,7 @@ import Input from "../form/input/InputField";
 import RichTextEditor from "../form/input/RichTextEditor";
 import ImageUpload from "../form/input/ImageUpload";
 import Label from "../form/Label";
+import VideoUpload, { getEmbedUrl } from "../form/input/VideoUpload";
 
 interface ConfigFormProps {
   configurations: Configuration[];
@@ -51,11 +52,32 @@ export default function ConfigForm({
                 onImageUploaded={(url) => onChange(index, "value", url)}
               />
             ) : (
-              <img
-                src={config.value}
-                alt={config.description}
-                className="max-w-xs h-auto border border-gray-200 rounded-lg dark:border-gray-800"
+              config.value && (
+                <img
+                  src={config.value}
+                  alt={config.description}
+                  className="max-w-xs h-auto border border-gray-200 rounded-lg dark:border-gray-800"
+                />
+              )
+            )
+          ) : config.type === "movie" ? (
+            isEditMode ? (
+              <VideoUpload
+                currentVideo={config.value}
+                onVideoUrlChanged={(url) => onChange(index, "value", url)}
               />
+            ) : (
+              config.value && (
+                <div className="aspect-video w-full max-w-2xl">
+                  <iframe
+                    src={getEmbedUrl(config.value)}
+                    className="w-full h-full border border-gray-200 rounded-lg dark:border-gray-800"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    title={config.description}
+                  />
+                </div>
+              )
             )
           ) : null}
         </div>

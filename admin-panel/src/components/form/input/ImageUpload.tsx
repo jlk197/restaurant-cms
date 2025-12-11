@@ -22,7 +22,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Walidacja typu pliku
+    // File type validation
     const allowedTypes = [
       "image/jpeg",
       "image/jpg",
@@ -31,27 +31,24 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       "image/webp",
     ];
     if (!allowedTypes.includes(file.type)) {
-      setError("Dozwolone są tylko pliki graficzne (JPG, PNG, GIF, WebP)");
+      setError("Only image files are allowed (JPG, PNG, GIF, WebP)");
       return;
     }
 
-    // Walidacja rozmiaru (5MB)
+    // File size validation (5MB)
     if (file.size > 5 * 1024 * 1024) {
-      setError("Plik jest za duży. Maksymalny rozmiar to 5MB");
+      setError("File is too large. Maximum size is 5MB");
       return;
     }
 
     setError("");
     setUploading(true);
-    console.log("try");
 
     try {
       const formData = new FormData();
       formData.append("image", file);
-      console.log("formData");
 
       const token = localStorage.getItem("authToken");
-      console.log("token: ", token);
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/upload`, {
         method: "POST",
         headers: {
@@ -67,10 +64,10 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         setPreview(fullUrl);
         onImageUploaded(fullUrl);
       } else {
-        setError(data.error || "Błąd podczas uploadu pliku");
+        setError(data.error || "Error uploading file");
       }
     } catch (err) {
-      setError("Błąd podczas uploadu pliku");
+      setError("Error uploading file");
       console.error("Upload error:", err);
     } finally {
       setUploading(false);
