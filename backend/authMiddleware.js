@@ -1,46 +1,45 @@
-const jwt = require("jsonwebtoken");
+const jwt = require('jsonwebtoken');
 
-const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  "your-super-secret-jwt-key-change-this-in-production";
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
 
-// Middleware for JWT token verification
+// Middleware do weryfikacji JWT tokena
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
   if (!token) {
-    return res.status(401).json({
-      success: false,
-      error: "No authorization token provided",
+    return res.status(401).json({ 
+      success: false, 
+      error: 'Brak tokena autoryzacyjnego' 
     });
   }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      return res.status(403).json({
-        success: false,
-        error: "Invalid or expired token",
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Nieprawidłowy lub wygasły token' 
       });
     }
 
-    // Add user data to request
+    // Dodaj dane użytkownika do request
     req.user = user;
     next();
   });
 };
 
-// Function to generate token
+// Funkcja do generowania tokena
 const generateToken = (user) => {
   const payload = {
     id: user.id,
     email: user.email,
     name: user.name,
-    surname: user.surname,
+    surname: user.surname
   };
 
-  // Token valid for 24 hours
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "24h" });
+  // Token ważny przez 24 godziny
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
 };
 
 module.exports = { authenticateToken, generateToken };
+

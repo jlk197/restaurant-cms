@@ -21,7 +21,6 @@
     "react-dom": "^19.2.0",
     "react-dropzone": "^14.3.8",
     "react-helmet-async": "^2.0.5",
-    "react-quill-new": "^3.6.0",
     "react-router-dom": "^7.9.6",
     "react-scripts": "5.0.1",
     "simplebar-react": "^3.3.0",

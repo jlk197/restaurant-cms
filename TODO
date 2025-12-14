@@ -1,5 +1,0 @@
-- długość życia tokenu i sprawdzanie czy nadal jest valid
-- zabezpieczenie, że nie można usunąć swojego konta oraz że jakiś administrator musi być zawsze
-- zastanowić się, co zrobić z zasobami usuniętego administratora (tak naprawdę go nie usuwać, ale dodać jakaś flagę i żeby nie mógł się logować)
-- dodać home jakiś
-- przemyśleć jakich szefów i dania wyświetlić na głównej

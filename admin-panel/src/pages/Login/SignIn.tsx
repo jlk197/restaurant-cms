@@ -10,8 +10,8 @@ export default function SignIn({ onLoginSuccess }: SignInProps) {
   return (
     <>
       <PageMeta
-        title="Admin Panel - Login"
-        description="Sign in to the admin panel"
+        title="Panel Administracyjny - Logowanie"
+        description="Zaloguj się do panelu administracyjnego"
       />
       <AuthLayout>
         <SignInForm onLoginSuccess={onLoginSuccess} />

@@ -12,7 +12,6 @@ import {
   PageIcon,
   PieChartIcon,
   PlugInIcon,
-  SettingsIcon,
   TableIcon,
   UserCircleIcon,
 } from "../icons";
@@ -36,9 +35,9 @@ const navItems: NavItem[] = [
     path: "/administrators",
   },
   {
-    icon: <SettingsIcon />,
-    name: "Configuration",
-    path: "configuration",
+    icon: <CalenderIcon />,
+    name: "Calendar",
+    path: "calendar",
   },
   {
     icon: <UserCircleIcon />,
