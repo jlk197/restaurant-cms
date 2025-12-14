@@ -24,6 +24,12 @@ const API_CONFIG = {
       UPDATE: "/api/contact-items/",
       DELETE: "/api/contact-items/",
     },
+    SLIDER_IMAGES: {
+      GET: "/api/slider-images",
+      ADD: "/api/slider-images",
+      UPDATE: "/api/slider-images/",
+      DELETE: "/api/slider-images/",
+    },
   },
 };
 

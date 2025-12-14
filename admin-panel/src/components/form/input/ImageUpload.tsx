@@ -1,20 +1,22 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import API_CONFIG from "../../../config/api";
 
 interface ImageUploadProps {
   currentImage?: string;
   onImageUploaded: (url: string) => void;
-  className?: string;
 }
 
 const ImageUpload: React.FC<ImageUploadProps> = ({
   currentImage,
   onImageUploaded,
-  className = "",
 }) => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string>("");
   const [preview, setPreview] = useState<string>(currentImage || "");
+
+  useEffect(() => {
+    setPreview(currentImage || "");
+  }, [currentImage]);
 
   const handleFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -75,7 +77,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   };
 
   return (
-    <div className={`space-y-3 ${className}`}>
+    <div className="space-y-3 ">
       {preview && (
         <div className="relative inline-block">
           <img

@@ -599,7 +599,6 @@ app.get("/api/slider-images", async (req, res) => {
       FROM slider_image s
       LEFT JOIN administrator a1 ON s.creator_id = a1.id
       LEFT JOIN administrator a2 ON s.last_modificator_id = a2.id
-      WHERE s.is_active = true
       ORDER BY s.creation_time DESC
     `);
     res.json({ success: true, data: result.rows });
