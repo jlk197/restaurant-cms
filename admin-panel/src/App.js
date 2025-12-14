@@ -1,12 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import SignIn from "./pages/Login/SignIn";
 import Home from "./pages/Dashboard/Home";
 import UserProfiles from "./pages/Admins/UserProfiles";
 import AppLayout from "./layout/AppLayout";
 import ChefPage from "./pages/Dashboard/ChefPage";
-import ContactPage from "./pages/Contact/ContactPage";
 import Configuration from "./pages/Configuration";
+import ContactItemsPage from "./pages/Contact/Items";
+import ContactTypesPage from "./pages/Contact/Types";
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -54,7 +55,8 @@ function App() {
           <Route path="dashboard" element={<Home onLogout={handleLogout} />} />
           <Route path="administrators" element={<UserProfiles />} />
           <Route path="chef" element={<ChefPage />} />
-          <Route path="contact" element={<ContactPage />} />
+          <Route path="contact/types" element={<ContactTypesPage />} />
+          <Route path="contact/items" element={<ContactItemsPage />} />
           <Route path="configuration" element={<Configuration />} />
         </Route>
 

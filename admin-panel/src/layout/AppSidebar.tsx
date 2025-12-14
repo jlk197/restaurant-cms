@@ -6,6 +6,7 @@ import {
   BoxCubeIcon,
   CalenderIcon,
   ChevronDownIcon,
+  ContactIcon,
   GridIcon,
   HorizontaLDots,
   ListIcon,
@@ -27,7 +28,8 @@ const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
-    subItems: [{ name: "Ecommerce", path: "#!", pro: false }],
+    path: "/dashboard",
+    //subItems: [{ name: "Ecommerce", path: "#!", pro: false }],
   },
   {
     icon: <UserCircleIcon />,
@@ -38,6 +40,14 @@ const navItems: NavItem[] = [
     icon: <SettingsIcon />,
     name: "Configuration",
     path: "configuration",
+  },
+  {
+    icon: <ContactIcon />,
+    name: "Contact",
+    subItems: [
+      { name: "Types", path: "/contact/types", pro: false },
+      { name: "Items", path: "/contact/items", pro: false },
+    ],
   },
   {
     icon: <CalenderIcon />,

@@ -12,7 +12,7 @@ const menuTiles = [
   {
     title: "Contact",
     description: "Edit contact data",
-    path: "/contact",
+    path: "/contact/items",
     icon: "",
     color: "text-green-500",
   },

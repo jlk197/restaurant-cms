@@ -261,9 +261,7 @@ app.get("/api/pages/:id", async (req, res) => {
       [id]
     );
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Page not founda" });
+      return res.status(404).json({ success: false, error: "Page not founda" });
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -317,9 +315,7 @@ app.put("/api/pages/:id", authenticateToken, async (req, res) => {
       ]
     );
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Page not founda" });
+      return res.status(404).json({ success: false, error: "Page not founda" });
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -335,9 +331,7 @@ app.delete("/api/pages/:id", authenticateToken, async (req, res) => {
       id,
     ]);
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Page not founda" });
+      return res.status(404).json({ success: false, error: "Page not founda" });
     }
     res.json({ success: true, message: "Page została usunięta" });
   } catch (error) {
@@ -480,9 +474,7 @@ app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
       ]
     );
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Chef not foundy" });
+      return res.status(404).json({ success: false, error: "Chef not foundy" });
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -499,9 +491,7 @@ app.delete("/api/chefs/:id", authenticateToken, async (req, res) => {
       [id]
     );
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Chef not foundy" });
+      return res.status(404).json({ success: false, error: "Chef not foundy" });
     }
     res.json({ success: true, message: "Chef został usunięty" });
   } catch (error) {
@@ -819,7 +809,6 @@ app.post("/api/currencies", authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
 // === ENDPOINTS FOR TYPÓW KONTAKTU ===
 
 // Get wszystkie typy kontaktu
@@ -840,7 +829,7 @@ app.get("/api/contact-types", async (req, res) => {
   }
 });
 
-// Utwórz nowy typ kontaktu (requires token)
+// Utwórz nowy typ kontaktu
 app.post("/api/contact-types", authenticateToken, async (req, res) => {
   try {
     const { value, creator_id } = req.body;
@@ -849,6 +838,56 @@ app.post("/api/contact-types", authenticateToken, async (req, res) => {
       [value, creator_id]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Usuń typ kontaktu po ID (requires token)
+app.delete("/api/contact-types/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await query(
+      "DELETE FROM contact_type WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Contact type not found" });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Aktualizuj typ kontaktu po ID
+app.put("/api/contact-types/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { value, last_modificator_id } = req.body;
+
+    // Aktualizacja rekordu
+    const result = await query(
+      `UPDATE contact_type
+       SET value = $1,
+           last_modificator_id = $2,
+           last_modification_time = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [value, last_modificator_id, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Contact type not found" });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -868,7 +907,6 @@ app.get("/api/contact-items", async (req, res) => {
       LEFT JOIN contact_type ct ON ci.contact_type_id = ct.id
       LEFT JOIN administrator a1 ON ci.creator_id = a1.id
       LEFT JOIN administrator a2 ON ci.last_modificator_id = a2.id
-      WHERE ci.is_active = true
       ORDER BY ci.creation_time DESC
     `);
     res.json({ success: true, data: result.rows });
