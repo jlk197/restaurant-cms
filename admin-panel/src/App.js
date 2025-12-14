@@ -7,14 +7,9 @@ import AppLayout from "./layout/AppLayout";
 import Configuration from "./pages/Configuration";
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    const token = localStorage.getItem("authToken");
-    if (token) {
-      setIsLoggedIn(true);
-    }
-  }, []);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return !!localStorage.getItem("authToken");
+  });
 
   const handleLoginSuccess = (token) => {
     localStorage.setItem("authToken", token);
