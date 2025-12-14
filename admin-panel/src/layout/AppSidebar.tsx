@@ -11,7 +11,7 @@ import {
   ListIcon,
   PageIcon,
   PieChartIcon,
-  PlugInIcon,
+  SettingsIcon,
   TableIcon,
   UserCircleIcon,
 } from "../icons";
@@ -33,6 +33,11 @@ const navItems: NavItem[] = [
     icon: <UserCircleIcon />,
     name: "Administrators",
     path: "/administrators",
+  },
+  {
+    icon: <SettingsIcon />,
+    name: "Configuration",
+    path: "configuration",
   },
   {
     icon: <CalenderIcon />,
@@ -303,7 +308,7 @@ const AppSidebar: React.FC = () => {
             <>
               <img
                 className="dark:hidden"
-                src="images/logo/logo.svg"
+                src="./images/logo/logo.svg"
                 alt="Logo"
                 width={150}
                 height={40}

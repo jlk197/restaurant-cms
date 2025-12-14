@@ -21,8 +21,11 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
     "node-fetch": "^2.7.0",
     "node-pg-migrate": "^8.0.3",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "quill": "^2.0.3",
+    "react-quill": "^2.0.0"
   }
 }

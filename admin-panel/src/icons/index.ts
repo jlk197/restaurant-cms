@@ -52,6 +52,7 @@ import { ReactComponent as ChatIcon } from "./chat.svg?react";
 import { ReactComponent as MoreDotIcon } from "./moredot.svg?react";
 import { ReactComponent as AlertHexaIcon } from "./alert-hexa.svg?react";
 import { ReactComponent as ErrorHexaIcon } from "./info-error.svg?react";
+import { ReactComponent as SettingsIcon } from "./settings.svg?react";
 
 export {
   ErrorHexaIcon,
@@ -108,4 +109,5 @@ export {
   HorizontaLDots,
   ChevronUpIcon,
   ChatIcon,
+  SettingsIcon,
 };
