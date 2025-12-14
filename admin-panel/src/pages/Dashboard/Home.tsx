@@ -1,21 +1,19 @@
 import PageMeta from "../../components/common/PageMeta";
-import { Link } from 'react-router-dom';
+import { Link } from "react-router-dom";
 
 const menuTiles = [
   {
     title: "Chef Page",
     description: "Manage informations about all the chefs",
-    path: "/chef", 
-    icon: (""
-    ),
+    path: "/chef",
+    icon: "",
     color: "text-primary",
   },
   {
     title: "Contact",
     description: "Edit contact data",
     path: "/contact",
-    icon: (""
-    ),
+    icon: "",
     color: "text-green-500",
   },
 ];
@@ -35,7 +33,9 @@ export default function Home() {
         </h2>
         <nav>
           <ol className="flex items-center gap-2">
-            <li><span className="font-medium">Admin /</span></li>
+            <li>
+              <span className="font-medium">Admin /</span>
+            </li>
             <li className="font-medium text-primary">Dashboard</li>
           </ol>
         </nav>
@@ -50,7 +50,9 @@ export default function Home() {
             className="group relative flex flex-col items-start justify-between rounded-sm border border-stroke bg-white px-7.5 py-6 shadow-default transition-all hover:border-primary hover:shadow-lg dark:border-strokedark dark:bg-boxdark dark:hover:border-primary"
           >
             {/* Ikona w kółku */}
-            <div className={`flex h-14 w-14 items-center justify-center rounded-full bg-meta-2 dark:bg-meta-4 ${item.color} mb-4 group-hover:bg-opacity-90`}>
+            <div
+              className={`flex h-14 w-14 items-center justify-center rounded-full bg-meta-2 dark:bg-meta-4 ${item.color} mb-4 group-hover:bg-opacity-90`}
+            >
               {item.icon}
             </div>
 
@@ -63,11 +65,22 @@ export default function Home() {
                 {item.description}
               </p>
             </div>
-            
+
             {/* Strzałka akcji (pojawia się po najechaniu) */}
             <div className="absolute top-4 right-4 opacity-0 transition-opacity group-hover:opacity-100 text-primary">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-5 h-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
+                />
               </svg>
             </div>
           </Link>

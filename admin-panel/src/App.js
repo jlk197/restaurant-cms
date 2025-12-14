@@ -6,16 +6,12 @@ import UserProfiles from "./pages/Admins/UserProfiles";
 import AppLayout from "./layout/AppLayout";
 import ChefPage from "./pages/Dashboard/ChefPage";
 import ContactPage from "./pages/Dashboard/ContactPage";
+import Configuration from "./pages/Configuration/index";
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    const token = localStorage.getItem("authToken");
-    if (token) {
-      setIsLoggedIn(true);
-    }
-  }, []);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return !!localStorage.getItem("authToken");
+  });
 
   const handleLoginSuccess = (token) => {
     localStorage.setItem("authToken", token);
@@ -59,6 +55,7 @@ function App() {
           <Route path="administrators" element={<UserProfiles />} />
           <Route path="chef" element={<ChefPage />} />
           <Route path="contact" element={<ContactPage />} />
+          <Route path="configuration" element={<Configuration />} />
         </Route>
 
         <Route

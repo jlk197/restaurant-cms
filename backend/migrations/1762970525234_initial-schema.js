@@ -73,24 +73,28 @@ exports.up = (pgm) => {
     },
   });
 
-  // Tabela Configuration
+  // Configuration table - first create enum type
+  pgm.createType("configuration_type", ["text", "richText", "image", "movie"]);
+
+  // Configuration table
   pgm.createTable("configuration", {
     key: {
-      type: "varchar(20)",
+      type: "varchar(50)",
       primaryKey: true,
     },
     value: {
-      type: "varchar(255)",
-      notNull: true,
+      type: "text",
+      notNull: false,
+      default: null,
     },
     description: {
       type: "varchar(255)",
       notNull: true,
     },
-    is_active: {
-      type: "boolean",
+    type: {
+      type: "configuration_type",
       notNull: true,
-      default: true,
+      default: "text",
     },
     creator_id: {
       type: "integer",
@@ -109,6 +113,21 @@ exports.up = (pgm) => {
       references: "administrator",
     },
   });
+
+  // Add sample configuration records
+  pgm.sql(`
+    INSERT INTO configuration (key, value, description, type, creator_id)
+    VALUES
+      ('site_name', NULL, 'Site name displayed in header', 'richText', 1),
+      ('contact_email', NULL, 'Main contact email address', 'text', 1),
+      ('header_logo', NULL, 'Restaurant logo displayed in header', 'image', 1),
+      ('slider_logo', NULL, 'Restaurant logo displayed in slider', 'image', 1),
+      ('about_us_content', NULL, 'Content of "About us" section', 'richText', 1),
+      ('about_us_video', NULL, 'Video displayed next to "About us" section', 'movie', 1),
+      ('our_menu_header', NULL, 'Header of "Our menu" section', 'text', 1),
+      ('our_chefs_header', NULL, 'Header of "Our chefs" section', 'text', 1),
+      ('contact_us_content', NULL, 'Content of "Contact us" section', 'richText', 1)
+  `);
 
   // Tabela Contact_Item
   pgm.createTable("contact_item", {
@@ -420,6 +439,7 @@ exports.down = (pgm) => {
   pgm.dropTable("page");
   pgm.dropTable("contact_item");
   pgm.dropTable("configuration");
+  pgm.dropType("configuration_type");
   pgm.dropTable("contact_type");
   pgm.dropTable("currency");
   pgm.dropTable("administrator");

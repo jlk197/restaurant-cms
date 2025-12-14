@@ -7,6 +7,11 @@ const API_CONFIG = {
       ME: "/api/administrators/me",
       DELETE: "/api/administrators/",
     },
+    CONFIGURATION: {
+      GET: "/api/configuration",
+      UPDATE: "/api/configuration",
+      UPDATE_SINGLE: "/api/configuration/",
+    },
   },
 };
 
