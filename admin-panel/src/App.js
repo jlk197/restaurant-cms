@@ -8,6 +8,7 @@ import ChefPage from "./pages/Dashboard/ChefPage";
 import Configuration from "./pages/Configuration";
 import ContactItemsPage from "./pages/Contact/Items";
 import ContactTypesPage from "./pages/Contact/Types";
+import SliderImages from "./pages/SliderImages";
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -58,6 +59,7 @@ function App() {
           <Route path="contact/types" element={<ContactTypesPage />} />
           <Route path="contact/items" element={<ContactItemsPage />} />
           <Route path="configuration" element={<Configuration />} />
+          <Route path="slider-images" element={<SliderImages />} />
         </Route>
 
         <Route

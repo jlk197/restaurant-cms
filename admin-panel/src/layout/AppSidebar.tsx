@@ -14,6 +14,7 @@ import {
   PieChartIcon,
   SettingsIcon,
   TableIcon,
+  TaskIcon,
   UserCircleIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
@@ -48,6 +49,11 @@ const navItems: NavItem[] = [
       { name: "Types", path: "/contact/types", pro: false },
       { name: "Items", path: "/contact/items", pro: false },
     ],
+  },
+  {
+    icon: <TaskIcon />,
+    name: "Slider Images",
+    path: "/slider-images",
   },
   {
     icon: <CalenderIcon />,
