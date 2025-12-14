@@ -12,6 +12,18 @@ const API_CONFIG = {
       UPDATE: "/api/configuration",
       UPDATE_SINGLE: "/api/configuration/",
     },
+    CONTACT_TYPES: {
+      GET: "/api/contact-types",
+      ADD: "/api/contact-types",
+      UPDATE: "/api/contact-types/",
+      DELETE: "/api/contact-types/",
+    },
+    CONTACT_ITEMS: {
+      GET: "/api/contact-items",
+      ADD: "/api/contact-items",
+      UPDATE: "/api/contact-items/",
+      DELETE: "/api/contact-items/",
+    },
   },
 };
 
