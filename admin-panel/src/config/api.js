@@ -15,6 +15,7 @@ const API_CONFIG = {
     CHEFS: {
       GET: "/api/chefs",
       UPDATE: "/api/chefs",
+      UPDATE_SINGLE: "/api/chefs/",
     }
   },
 };

@@ -416,19 +416,58 @@ app.delete("/api/menu-items/:id", authenticateToken, async (req, res) => {
 });
 
 // === ENDPOINTS FOR ChefY (CHEFS) ===
+console.log("--> REJESTRACJA ENDPOINTÓW CHEFS..."); // Log diagnostyczny
 
-// Get wszystkich Chefy
 app.get("/api/chefs", async (req, res) => {
   try {
-    const result = await query("SELECT * FROM chef_item ORDER BY id");
+    // Łączymy tabelę kucharzy z tabelą page_content, żeby wyciągnąć image_url
+    const result = await query(`
+      SELECT c.*, p.image_url 
+      FROM chef_item c
+      LEFT JOIN page_content p ON c.id = p.id
+      ORDER BY c.id
+    `);
     res.json({ success: true, data: result.rows });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// 2. BULK UPDATE (KLUCZOWY ENDPOINT DO ZAPISU)
+/*app.put("/api/chefs", authenticateToken, async (req, res) => {
+  console.log("--> PUT /api/chefs called"); // LOG DIAGNOSTYCZNY
+  try {
+    const { chefs } = req.body;
+    if (!chefs || !Array.isArray(chefs)) {
+      return res.status(400).json({ success: false, error: "Missing chefs array" });
+    }
 
-// Utwórz nowego Chefa (requires token)
-app.post("/api/chefs", authenticateToken, async (req, res) => {
+    const updatePromises = chefs.map((chef) =>
+      query(
+        `UPDATE chef_item SET 
+          name = $1, surname = $2, specialization = $3, 
+          facebook_link = $4, instagram_link = $5, twitter_link = $6, 
+          image_url = $7, last_modification_time = CURRENT_TIMESTAMP 
+        WHERE id = $8 RETURNING *`,
+        [
+          chef.name, chef.surname, chef.specialization, 
+          chef.facebook_link, chef.instagram_link, chef.twitter_link, 
+          chef.image_url, chef.id
+        ]
+      )
+    );
+
+    const results = await Promise.all(updatePromises);
+    res.json({ success: true, data: results.map((r) => r.rows[0]) });
+  } catch (error) {
+    console.error("Chef update error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});*/
+
+app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  console.log(`[PUT] Aktualizacja Chefa ID: ${id}`);
+
   try {
     const {
       name,
@@ -437,17 +476,67 @@ app.post("/api/chefs", authenticateToken, async (req, res) => {
       facebook_link,
       instagram_link,
       twitter_link,
+      image_url 
     } = req.body;
+
+    // ZABEZPIECZENIE: Jeśli image_url jest null/undefined, zamień na pusty string
+    // Baza ma NOT NULL, więc musimy coś tam wstawić.
+    const safeImageUrl = image_url || ""; 
+
+    // 1. Update chef_item
+    await query(
+      `UPDATE chef_item SET 
+        name = $1, surname = $2, specialization = $3, 
+        facebook_link = $4, instagram_link = $5, twitter_link = $6
+      WHERE id = $7`,
+      [name, surname, specialization, facebook_link, instagram_link, twitter_link, id]
+    );
+
+    // 2. Update page_content (używamy safeImageUrl)
+    await query(
+      `UPDATE page_content SET 
+        image_url = $1,
+        last_modification_time = CURRENT_TIMESTAMP
+      WHERE id = $2`,
+      [safeImageUrl, id]
+    );
+
+    // 3. Pobranie wyniku
     const result = await query(
-      "INSERT INTO chef_item (name, surname, specialization, facebook_link, instagram_link, twitter_link) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-      [
-        name,
-        surname,
-        specialization,
-        facebook_link,
-        instagram_link,
-        twitter_link,
-      ]
+      `SELECT c.*, p.image_url 
+       FROM chef_item c
+       JOIN page_content p ON c.id = p.id
+       WHERE c.id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Chef not found" });
+    }
+
+    console.log("[PUT] Sukces! Zapisano dane.");
+    res.json({ success: true, data: result.rows[0] });
+
+  } catch (error) {
+    console.error("Critical Update Error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. CREATE NEW CHEF
+app.post("/api/chefs", authenticateToken, async (req, res) => {
+  try {
+    const {
+      name, surname, specialization, facebook_link, instagram_link, twitter_link,
+      image_url, position = 0, is_active = true
+    } = req.body;
+
+    const result = await query(
+      `INSERT INTO chef_item 
+      (name, surname, specialization, facebook_link, instagram_link, twitter_link, image_url, item_type, position, is_active, creation_time) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'Chef', $8, $9, CURRENT_TIMESTAMP) 
+      RETURNING *`,
+      [name, surname, specialization, facebook_link, instagram_link, twitter_link, image_url || null, position, is_active]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -455,55 +544,13 @@ app.post("/api/chefs", authenticateToken, async (req, res) => {
   }
 });
 
-// Update Chefa (requires token)
-app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      name,
-      surname,
-      specialization,
-      facebook_link,
-      instagram_link,
-      twitter_link,
-    } = req.body;
-    const result = await query(
-      "UPDATE chef_item SET name = $1, surname = $2, specialization = $3, facebook_link = $4, instagram_link = $5, twitter_link = $6 WHERE id = $7 RETURNING *",
-      [
-        name,
-        surname,
-        specialization,
-        facebook_link,
-        instagram_link,
-        twitter_link,
-        id,
-      ]
-    );
-    if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Chef not foundy" });
-    }
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Usuń Chefa (requires token)
+// 4. DELETE CHEF
 app.delete("/api/chefs/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await query(
-      "DELETE FROM chef_item WHERE id = $1 RETURNING id",
-      [id]
-    );
-    if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Chef not foundy" });
-    }
-    res.json({ success: true, message: "Chef został usunięty" });
+    const result = await query("DELETE FROM chef_item WHERE id = $1 RETURNING id", [id]);
+    if (result.rows.length === 0) return res.status(404).json({ success: false, error: "Not found" });
+    res.json({ success: true, message: "Deleted" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
