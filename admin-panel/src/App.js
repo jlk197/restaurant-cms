@@ -9,6 +9,7 @@ import Configuration from "./pages/Configuration";
 import ContactItemsPage from "./pages/Contact/Items";
 import ContactTypesPage from "./pages/Contact/Types";
 import SliderImages from "./pages/SliderImages";
+import Navigation from "./pages/Navigation";
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -60,6 +61,7 @@ function App() {
           <Route path="contact/items" element={<ContactItemsPage />} />
           <Route path="configuration" element={<Configuration />} />
           <Route path="slider-images" element={<SliderImages />} />
+          <Route path="navigation" element={<Navigation />} />
         </Route>
 
         <Route

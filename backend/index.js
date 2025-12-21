@@ -522,14 +522,22 @@ app.get("/api/navigation", async (req, res) => {
 // Utwórz nowy Navigation item (requires token)
 app.post("/api/navigation", authenticateToken, async (req, res) => {
   try {
-    const { title, position, url, is_active, navigation_id, creator_id } =
-      req.body;
+    const {
+      title,
+      position,
+      url,
+      link_type,
+      is_active,
+      navigation_id,
+      creator_id,
+    } = req.body;
     const result = await query(
-      "INSERT INTO navigation (title, position, url, is_active, navigation_id, creator_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+      "INSERT INTO navigation (title, position, url, link_type, is_active, navigation_id, creator_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
       [
         title,
         position,
         url,
+        link_type || "internal",
         is_active !== undefined ? is_active : true,
         navigation_id,
         creator_id,
@@ -549,13 +557,23 @@ app.put("/api/navigation/:id", authenticateToken, async (req, res) => {
       title,
       position,
       url,
+      link_type,
       is_active,
       navigation_id,
       last_modificator_id,
     } = req.body;
     const result = await query(
-      "UPDATE navigation SET title = $1, position = $2, url = $3, is_active = $4, navigation_id = $5, last_modificator_id = $6, last_modification_time = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *",
-      [title, position, url, is_active, navigation_id, last_modificator_id, id]
+      "UPDATE navigation SET title = $1, position = $2, url = $3, link_type = $4, is_active = $5, navigation_id = $6, last_modificator_id = $7, last_modification_time = CURRENT_TIMESTAMP WHERE id = $8 RETURNING *",
+      [
+        title,
+        position,
+        url,
+        link_type,
+        is_active,
+        navigation_id,
+        last_modificator_id,
+        id,
+      ]
     );
     if (result.rows.length === 0) {
       return res

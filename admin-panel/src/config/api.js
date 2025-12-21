@@ -30,6 +30,18 @@ const API_CONFIG = {
       UPDATE: "/api/slider-images/",
       DELETE: "/api/slider-images/",
     },
+    NAVIGATION: {
+      GET: "/api/navigation",
+      ADD: "/api/navigation",
+      UPDATE: "/api/navigation/",
+      DELETE: "/api/navigation/",
+    },
+    PAGES: {
+      GET: "/api/pages",
+      ADD: "/api/pages",
+      UPDATE: "/api/pages/",
+      DELETE: "/api/pages/",
+    },
   },
 };
 

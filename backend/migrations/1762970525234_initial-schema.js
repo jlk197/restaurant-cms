@@ -241,6 +241,9 @@ exports.up = (pgm) => {
     },
   });
 
+  // Enum for navigation link types
+  pgm.createType("link_type", ["internal", "external", "anchor"]);
+
   // Tabela Navigation
   pgm.createTable("navigation", {
     id: "id",
@@ -255,6 +258,11 @@ exports.up = (pgm) => {
     url: {
       type: "varchar(255)",
       notNull: true,
+    },
+    link_type: {
+      type: "link_type",
+      notNull: true,
+      default: "internal",
     },
     is_active: {
       type: "boolean",
