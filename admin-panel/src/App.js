@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { jwtDecode } from "jwt-decode";
 import SignIn from "./pages/Login/SignIn";
 import Home from "./pages/Dashboard/Home";
 import UserProfiles from "./pages/Admins/UserProfiles";
@@ -9,11 +10,39 @@ import Configuration from "./pages/Configuration";
 import ContactItemsPage from "./pages/Contact/Items";
 import ContactTypesPage from "./pages/Contact/Types";
 import SliderImages from "./pages/SliderImages";
+import Navigation from "./pages/Navigation";
 
 function App() {
+  const isTokenValid = (token) => {
+    try {
+      const decoded = jwtDecode(token);
+      const currentTime = Date.now() / 1000;
+      console.log("Token expiration time:", decoded.exp);
+      console.log("Current time:", currentTime);
+      console.log("Token is valid:", decoded.exp > currentTime);
+      if (decoded.exp < currentTime) {
+        localStorage.removeItem("authToken");
+        setIsLoggedIn(false);
+      }
+      return decoded.exp > currentTime;
+    } catch (error) {
+      return false;
+    }
+  };
+
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return !!localStorage.getItem("authToken");
+    const token = localStorage.getItem("authToken");
+    return token && isTokenValid(token);
   });
+
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+
+    if (!token || !isTokenValid(token)) {
+      localStorage.removeItem("authToken");
+      setIsLoggedIn(false);
+    }
+  }, []);
 
   const handleLoginSuccess = (token) => {
     localStorage.setItem("authToken", token);
@@ -60,6 +89,7 @@ function App() {
           <Route path="contact/items" element={<ContactItemsPage />} />
           <Route path="configuration" element={<Configuration />} />
           <Route path="slider-images" element={<SliderImages />} />
+          <Route path="navigation" element={<Navigation />} />
         </Route>
 
         <Route

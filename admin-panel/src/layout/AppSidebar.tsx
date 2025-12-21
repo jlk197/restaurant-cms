@@ -7,6 +7,7 @@ import {
   CalenderIcon,
   ChevronDownIcon,
   ContactIcon,
+  FolderIcon,
   GridIcon,
   HorizontaLDots,
   ListIcon,
@@ -53,6 +54,11 @@ const navItems: NavItem[] = [
     icon: <TaskIcon />,
     name: "Slider Images",
     path: "/slider-images",
+  },
+  {
+    icon: <FolderIcon />,
+    name: "Navigation",
+    path: "/navigation",
   },
 ];
 

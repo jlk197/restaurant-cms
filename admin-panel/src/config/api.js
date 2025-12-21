@@ -5,7 +5,7 @@ const API_CONFIG = {
       LOGIN: "/api/administrators/login",
       GET: "/api/administrators",
       ME: "/api/administrators/me",
-      DELETE: "/api/administrators/",
+      DELETE: "/api/administrators/delete/",
     },
     CONFIGURATION: {
       GET: "/api/configuration",
@@ -29,6 +29,18 @@ const API_CONFIG = {
       ADD: "/api/slider-images",
       UPDATE: "/api/slider-images/",
       DELETE: "/api/slider-images/",
+    },
+    NAVIGATION: {
+      GET: "/api/navigation",
+      ADD: "/api/navigation",
+      UPDATE: "/api/navigation/",
+      DELETE: "/api/navigation/",
+    },
+    PAGES: {
+      GET: "/api/pages",
+      ADD: "/api/pages",
+      UPDATE: "/api/pages/",
+      DELETE: "/api/pages/",
     },
   },
 };
