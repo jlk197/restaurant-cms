@@ -5,7 +5,7 @@ const API_CONFIG = {
       LOGIN: "/api/administrators/login",
       GET: "/api/administrators",
       ME: "/api/administrators/me",
-      DELETE: "/api/administrators/",
+      DELETE: "/api/administrators/delete/",
     },
     CONFIGURATION: {
       GET: "/api/configuration",

@@ -98,7 +98,7 @@ app.post(
 app.get("/api/administrators", async (req, res) => {
   try {
     const result = await query(
-      "SELECT id, name, surname, email FROM administrator ORDER BY id"
+      "SELECT id, name, surname, email FROM administrator WHERE is_active = true ORDER BY id"
     );
     res.json({ success: true, data: result.rows });
   } catch (error) {
@@ -162,25 +162,66 @@ app.put("/api/administrators/:id", authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// SOFT DELETE administrator
+app.put(
+  "/api/administrators/delete/:id",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const adminIdToDeactivate = parseInt(req.params.id, 10);
+      const loggedAdminId = req.user.id;
 
-// Delete administrator (requires token)
-app.delete("/api/administrators/:id", authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await query(
-      "DELETE FROM administrator WHERE id = $1 RETURNING id",
-      [id]
-    );
-    if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Administrator not found" });
+      // 1. Nie można dezaktywować samego siebie
+      if (adminIdToDeactivate === loggedAdminId) {
+        return res.status(400).json({
+          success: false,
+          error: "Cannot deactivate your own account",
+        });
+      }
+
+      // 2. Sprawdź ilu jest AKTYWNYCH administratorów
+      const countResult = await query(
+        "SELECT COUNT(*) FROM administrator WHERE is_active = true"
+      );
+      const activeAdminCount = parseInt(countResult.rows[0].count, 10);
+
+      if (activeAdminCount <= 1) {
+        return res.status(400).json({
+          success: false,
+          error: "At least one active administrator must remain",
+        });
+      }
+
+      // 3. Dezaktywuj administratora (soft delete)
+      const result = await query(
+        `
+      UPDATE administrator
+      SET
+        is_active = false,
+        email = ''
+      WHERE id = $1
+        AND is_active = true
+      RETURNING id
+      `,
+        [adminIdToDeactivate]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: "Administrator not found or already inactive",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Administrator deactivated successfully",
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
     }
-    res.json({ success: true, message: "Administrator deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
   }
-});
+);
 
 // Administrator login
 app.post("/api/administrators/login", async (req, res) => {

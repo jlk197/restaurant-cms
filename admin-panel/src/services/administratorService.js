@@ -30,7 +30,7 @@ class AdministratorService extends BaseService {
 
   async delete(id) {
     return this.request(`${API_CONFIG.ENDPOINTS.ADMINISTRATORS.DELETE}${id}`, {
-      method: "DELETE",
+      method: "PUT",
     });
   }
 }

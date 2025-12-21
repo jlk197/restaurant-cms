@@ -24,6 +24,11 @@ exports.up = (pgm) => {
       type: "varchar(50)",
       notNull: true,
     },
+    is_active: {
+      type: "boolean",
+      notNull: true,
+      default: true,
+    },
     password: {
       type: "varchar(255)",
       notNull: true,

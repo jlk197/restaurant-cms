@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useImperativeHandle, forwardRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+  useState,
+} from "react";
 import administratorService from "../../services/administratorService";
 import Loader from "../Loader";
 import {
@@ -17,6 +23,7 @@ export interface AdminsTableRef {
 }
 
 const AdminsTable = forwardRef<AdminsTableRef>(function AdminsTable(_, ref) {
+  const [deleteError, setDeleteError] = useState("");
   const {
     data: users,
     isLoading,
@@ -41,9 +48,12 @@ const AdminsTable = forwardRef<AdminsTableRef>(function AdminsTable(_, ref) {
   }, [fetchUsers]);
 
   const deleteUser = async (id: number) => {
+    setDeleteError("");
     const response = await administratorService.delete(id);
     if (response.success) {
       setUsers((prev) => prev?.filter((user) => user.id !== id) ?? null);
+    } else {
+      setDeleteError(response.error || "Failed to delete user");
     }
   };
 
@@ -54,6 +64,11 @@ const AdminsTable = forwardRef<AdminsTableRef>(function AdminsTable(_, ref) {
       {error && (
         <div className="mb-4 p-4 text-sm text-red-600 bg-red-50 rounded-xl border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
           {error}
+        </div>
+      )}
+      {deleteError && (
+        <div className="mb-4 p-4 text-sm text-red-600 bg-red-50 rounded-xl border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
+          {deleteError}
         </div>
       )}
 
