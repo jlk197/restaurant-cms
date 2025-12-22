@@ -1,0 +1,37 @@
+/* Custom CSS fixes for React components */
+
+/* Fix menu item card height and info positioning */
+.owl-menu-item .item {
+  height: 400px;
+}
+
+.owl-menu-item .card {
+  height: 100%;
+  position: relative;
+}
+
+.owl-menu-item .info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  transform: translateY(calc(100% - 120px));
+}
+
+.owl-menu-item .card:hover .info {
+  transform: translateY(0);
+}
+
+.owl-menu-item .info-back {
+  padding: 20px;
+}
+
+.owl-menu-item .info-back h3 {
+  color: white;
+  margin-bottom: 10px;
+}
+
+.owl-menu-item .info-back span {
+  color: white;
+  font-size: 14px;
+}

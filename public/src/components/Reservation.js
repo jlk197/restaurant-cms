@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 
-const Reservation = ({ contactItems = [] }) => {
+const Reservation = ({ contactItems = [], config = {} }) => {
+  console.log("Reservation:", config.contact_us_content);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -15,7 +16,7 @@ const Reservation = ({ contactItems = [] }) => {
     e.preventDefault();
     console.log("Reservation submitted:", formData);
     // Here you can add API call to submit reservation
-    alert("Reservation submitted! (This is a demo)");
+    alert("Reservation submitted!");
   };
 
   const handleChange = (e) => {
@@ -57,15 +58,20 @@ const Reservation = ({ contactItems = [] }) => {
             <div className="left-text-content">
               <div className="section-heading">
                 <h6>Contact Us</h6>
-                <h2>
-                  Here You Can Make A Reservation Or Just walk in to our cafe
-                </h2>
               </div>
-              <p>
-                Donec pretium est orci, non vulputate arcu hendrerit a. Fusce a
-                eleifend riqsie, namei sollicitudin urna diam, sed commodo purus
-                porta ut.
-              </p>
+              {config.contact_us_content ? (
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: config.contact_us_content,
+                  }}
+                />
+              ) : (
+                <p>
+                  Donec pretium est orci, non vulputate arcu hendrerit a. Fusce
+                  a eleifend riqsie, namei sollicitudin urna diam, sed commodo
+                  purus porta ut.
+                </p>
+              )}
               {Object.keys(groupedContacts).length > 0 && (
                 <div className="row">
                   {Object.entries(groupedContacts).map(

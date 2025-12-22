@@ -33,21 +33,8 @@
     },
   });
 
-  $(".Modern-Slider").slick({
-    autoplay: true,
-    autoplaySpeed: 10000,
-    speed: 600,
-    slidesToShow: 1,
-    slidesToScroll: 1,
-    pauseOnHover: false,
-    dots: true,
-    pauseOnDotsHover: true,
-    cssEase: "linear",
-    // fade:true,
-    draggable: false,
-    prevArrow: '<button class="PrevArrow"></button>',
-    nextArrow: '<button class="NextArrow"></button>',
-  });
+  // Slider initialization moved to React Banner component
+  // to handle dynamic image loading from API
 
   $(".search-icon a").on("click", function (event) {
     event.preventDefault();
@@ -74,25 +61,8 @@
     $("#tabs").tabs();
   });
 
-  $(".owl-menu-item").owlCarousel({
-    items: 5,
-    loop: true,
-    dots: true,
-    nav: true,
-    autoplay: true,
-    margin: 30,
-    responsive: {
-      0: {
-        items: 1,
-      },
-      600: {
-        items: 2,
-      },
-      1000: {
-        items: 5,
-      },
-    },
-  });
+  // Owl Carousel initialization moved to React Menu component
+  // to handle dynamic menu items loading from API
 
   // Window Resize Mobile Menu Fix
   mobileNav();

@@ -1,6 +1,52 @@
-import React from "react";
+import React, { useEffect } from "react";
 
 const Banner = ({ sliderImages = [], config = {} }) => {
+  useEffect(() => {
+    // Initialize or reinitialize the slider after images are loaded
+    const initSlider = () => {
+      const $ = window.jQuery;
+      if ($) {
+        const $slider = $(".Modern-Slider");
+
+        // Destroy existing slider if it exists
+        if ($slider.hasClass("slick-initialized")) {
+          $slider.slick("unslick");
+        }
+
+        // Initialize slider
+        $slider.slick({
+          autoplay: true,
+          autoplaySpeed: 10000,
+          speed: 600,
+          slidesToShow: 1,
+          slidesToScroll: 1,
+          pauseOnHover: false,
+          dots: true,
+          pauseOnDotsHover: true,
+          cssEase: "linear",
+          draggable: false,
+          prevArrow: '<button class="PrevArrow"></button>',
+          nextArrow: '<button class="NextArrow"></button>',
+        });
+      }
+    };
+
+    // Wait a bit for DOM to be ready
+    const timer = setTimeout(initSlider, 100);
+
+    return () => {
+      clearTimeout(timer);
+      // Cleanup slider on unmount
+      const $ = window.jQuery;
+      if ($) {
+        const $slider = $(".Modern-Slider");
+        if ($slider.hasClass("slick-initialized")) {
+          $slider.slick("unslick");
+        }
+      }
+    };
+  }, [sliderImages]); // Reinitialize when sliderImages change
+
   return (
     <div id="top">
       <div className="container-fluid">

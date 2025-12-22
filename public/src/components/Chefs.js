@@ -1,6 +1,7 @@
 import React from "react";
 
-const Chefs = ({ chefs = [] }) => {
+const Chefs = ({ chefs = [], config = {} }) => {
+  console.log("Chefs:", config.our_chefs_header);
   return (
     <section className="section" id="chefs">
       <div className="container">
@@ -8,7 +9,10 @@ const Chefs = ({ chefs = [] }) => {
           <div className="col-lg-4 offset-lg-4 text-center">
             <div className="section-heading">
               <h6>Our Chefs</h6>
-              <h2>We offer the best ingredients for you</h2>
+              <h2>
+                {config.our_chefs_header ||
+                  "We offer the best ingredients for you"}
+              </h2>
             </div>
           </div>
         </div>

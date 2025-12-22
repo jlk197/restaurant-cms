@@ -1,6 +1,6 @@
 import React from "react";
 
-const Header = ({ navigation = [] }) => {
+const Header = ({ navigation = [], config = {} }) => {
   return (
     <header className="header-area header-sticky">
       <div className="container">
@@ -8,10 +8,18 @@ const Header = ({ navigation = [] }) => {
           <div className="col-12">
             <nav className="main-nav">
               <a href="index.html" className="logo">
-                <img
-                  src="assets/images/klassy-logo.png"
-                  alt="klassy cafe html template"
-                />
+                {config.header_logo ? (
+                  <img
+                    src={config.header_logo}
+                    alt="klassy cafe html template"
+                    style={{ maxWidth: "100%", maxHeight: "80px" }}
+                  />
+                ) : (
+                  <img
+                    src="assets/images/klassy-logo.png"
+                    alt="klassy cafe html template"
+                  />
+                )}
               </a>
               <ul className="nav">
                 <li className="scroll-to-section">

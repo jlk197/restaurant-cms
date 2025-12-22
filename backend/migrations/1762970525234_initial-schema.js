@@ -123,15 +123,18 @@ exports.up = (pgm) => {
   pgm.sql(`
     INSERT INTO configuration (key, value, description, type, creator_id)
     VALUES
-      ('site_name', NULL, 'Site name displayed in header', 'richText', 1),
-      ('contact_email', NULL, 'Main contact email address', 'text', 1),
+      ('site_name', NULL, 'Site name displayed next to slider', 'text', 1),
+      ('site_tagline', NULL, 'Site tag line displayed next to slider', 'text', 1),
       ('header_logo', NULL, 'Restaurant logo displayed in header', 'image', 1),
-      ('slider_logo', NULL, 'Restaurant logo displayed in slider', 'image', 1),
       ('about_us_content', NULL, 'Content of "About us" section', 'richText', 1),
       ('about_us_video', NULL, 'Video displayed next to "About us" section', 'movie', 1),
       ('our_menu_header', NULL, 'Header of "Our menu" section', 'text', 1),
       ('our_chefs_header', NULL, 'Header of "Our chefs" section', 'text', 1),
-      ('contact_us_content', NULL, 'Content of "Contact us" section', 'richText', 1)
+      ('contact_us_content', NULL, 'Content of "Contact us" section', 'richText', 1),
+      ('instagram_link', NULL, 'Instagram link', 'text', 1),
+      ('facebook_link', NULL, 'Facebook link', 'text', 1),
+      ('twitter_link', NULL, 'Twitter link', 'text', 1),
+      ('linkedin_link', NULL, 'Linkedin link', 'text', 1)
   `);
 
   // Tabela Contact_Item
