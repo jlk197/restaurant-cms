@@ -1,3 +1,11 @@
-// This file is kept for webpack compatibility
-// The actual HTML template is loaded from public/index.html
-console.log("Template loaded successfully");
+import React from "react";
+import ReactDOM from "react-dom/client";
+import "./index.css";
+import App from "./App";
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
