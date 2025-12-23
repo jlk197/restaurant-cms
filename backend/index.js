@@ -229,7 +229,7 @@ app.post("/api/administrators/login", async (req, res) => {
 // === PAGE ENDPOINTS ===
 
 // Get all pages
-app.get("/api/pages", async (req, res) => {
+/*app.get("/api/pages", async (req, res) => {
   try {
     const result = await query(`
       SELECT p.*,
@@ -244,47 +244,157 @@ app.get("/api/pages", async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
-});
+});*/
 
-// Get stronę po ID
-app.get("/api/pages/:id", async (req, res) => {
+// Get all content
+app.get("/api/content/available", async (req, res) => {
   try {
-    const { id } = req.params;
-    const result = await query(
-      `SELECT p.*,
-        a1.name || ' ' || a1.surname as creator_name,
-        a2.name || ' ' || a2.surname as modificator_name
-      FROM page p
-      LEFT JOIN administrator a1 ON p.creator_id = a1.id
-      LEFT JOIN administrator a2 ON p.last_modificator_id = a2.id
-      WHERE p.id = $1`,
-      [id]
-    );
-    if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Page not founda" });
-    }
-    res.json({ success: true, data: result.rows[0] });
+    const result = await query(`
+      SELECT 
+        pc.id, pc.item_type,
+        c.name as chef_name, c.surname as chef_surname,
+        m.name as menu_name
+      FROM page_content pc
+      LEFT JOIN chef_item c ON pc.id = c.id
+      LEFT JOIN menu_item m ON pc.id = m.id
+      ORDER BY pc.id DESC
+    `);
+    
+    const formatted = result.rows.map(row => {
+      let label = `ID: ${row.id} (${row.item_type})`;
+      if (row.chef_name) label = `👨‍🍳 ${row.chef_name} ${row.chef_surname}`;
+      else if (row.menu_name) label = `🍽️ ${row.menu_name}`;
+      
+      return {
+        id: row.id,
+        type: row.item_type,
+        label: label
+      };
+    });
+
+    res.json({ success: true, data: formatted });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Utwórz nową stronę (requires token)
+// Get pages with content
+app.get("/api/pages", async (req, res) => {
+  console.log("[API] Pobieranie listy stron...");
+  try {
+    const pagesResult = await query("SELECT * FROM page ORDER BY creation_time DESC");
+  
+    const pagesWithContent = await Promise.all(pagesResult.rows.map(async (page) => {
+      
+      let meta = page.meta_data;
+      
+      if (typeof meta === 'string') {
+        try {
+          meta = JSON.parse(meta);
+        } catch (e) {
+          console.error(`Błąd parsowania JSON dla strony ${page.id}`, e);
+          meta = {}; 
+        }
+      } else if (!meta) {
+        meta = {};
+      }
+      
+      const contentIds = meta.content_ids || [];
+      
+      let contentPreviews = [];
+
+      if (Array.isArray(contentIds) && contentIds.length > 0) {
+        try {
+          const contents = await query(`
+            SELECT pc.item_type, 
+                   ci.name as chef_name, ci.surname as chef_surname,
+                   mi.name as menu_name
+            FROM page_content pc
+            LEFT JOIN chef_item ci ON pc.id = ci.id
+            LEFT JOIN menu_item mi ON pc.id = mi.id
+            WHERE pc.id = ANY($1::int[])
+          `, [contentIds]);
+
+          contentPreviews = contents.rows.map(row => {
+              if (row.chef_name) return `👨‍🍳 ${row.chef_name} ${row.chef_surname}`;
+              if (row.menu_name) return `🍽️ ${row.menu_name}`;
+              return row.item_type; // Np. "menu_item" jeśli nie ma nazwy
+          });
+        } catch (err) {
+          console.error(`Błąd SQL przy stronie ${page.id}:`, err);
+        }
+      }
+      if (contentPreviews.length > 0) {
+          console.log(`-> Strona "${page.title}" ma content:`, contentPreviews);
+      }
+      return { ...page, contentPreviews };
+    }));
+
+    res.json({ success: true, data: pagesWithContent });
+  } catch (error) {
+    console.error("Błąd globalny /api/pages:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// --- POBIERANIE JEDNEJ STRONY (Z naprawionym odczytem JSON) ---
+app.get("/api/pages/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const pageResult = await query("SELECT * FROM page WHERE id = $1", [id]);
+    
+    if (pageResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Page not found" });
+    }
+
+    const page = pageResult.rows[0];
+
+    let meta = page.meta_data;
+    if (typeof meta === 'string') {
+        try { meta = JSON.parse(meta); } catch (e) { meta = {}; }
+    }
+    
+    const contentIds = meta?.content_ids || [];
+    let contents = [];
+
+    if (Array.isArray(contentIds) && contentIds.length > 0) {
+      const contentResult = await query(`
+        SELECT id, item_type 
+        FROM page_content 
+        WHERE id = ANY($1::int[])
+      `, [contentIds]);
+      
+      contents = contentResult.rows;
+    }
+
+    res.json({ 
+      success: true, 
+      data: { 
+        ...page, 
+        contents: contents 
+      } 
+    });
+
+  } catch (error) {
+    console.error("Błąd /api/pages/:id:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+//Create new page
 app.post("/api/pages", authenticateToken, async (req, res) => {
   try {
-    const {
-      title,
-      description,
-      header_image_url,
-      slug,
-      meta_data,
-      creator_id,
-    } = req.body;
+    const { title, description, header_image_url, slug, contents } = req.body;
+    const safeImageUrl = header_image_url || "";
+    
+    // Tworzymy JSON z IDkami contentu
+    const metaData = { content_ids: contents || [] };
+
     const result = await query(
-      "INSERT INTO page (title, description, header_image_url, slug, meta_data, creator_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-      [title, description, header_image_url, slug, meta_data, creator_id]
+      `INSERT INTO page (title, description, header_image_url, slug, meta_data, creation_time) 
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP) 
+       RETURNING *`,
+      [title, description, safeImageUrl, slug, JSON.stringify(metaData)]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -292,42 +402,49 @@ app.post("/api/pages", authenticateToken, async (req, res) => {
   }
 });
 
-// Update stronę (requires token)
+//Edit page
 app.put("/api/pages/:id", authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  console.log(`[PUT] Aktualizacja strony ID: ${id}`);
+  
   try {
-    const { id } = req.params;
-    const {
-      title,
-      description,
-      header_image_url,
-      slug,
-      meta_data,
-      last_modificator_id,
-    } = req.body;
-    const result = await query(
-      "UPDATE page SET title = $1, description = $2, header_image_url = $3, slug = $4, meta_data = $5, last_modificator_id = $6, last_modification_time = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *",
-      [
-        title,
-        description,
-        header_image_url,
-        slug,
-        meta_data,
-        last_modificator_id,
-        id,
-      ]
+    // 1. Pobieramy 'contents' (tablica ID np. [10, 12]) z body
+    const { title, description, header_image_url, slug, contents } = req.body;
+    const safeImageUrl = header_image_url || "";
+
+    // 2. Pakujemy to w JSON. To jest kluczowy moment!
+    const metaData = {
+      content_ids: contents || [] 
+    };
+
+    console.log("[PUT] Dane do zapisu:", JSON.stringify(metaData));
+
+    // 3. Zapisujemy JSON do kolumny meta_data
+    const pageResult = await query(
+      `UPDATE page SET 
+        title = $1, 
+        description = $2, 
+        header_image_url = $3, 
+        slug = $4, 
+        meta_data = $5,  -- Tutaj wlatuje nasz JSON
+        last_modification_time = CURRENT_TIMESTAMP 
+       WHERE id = $6 RETURNING *`,
+      [title, description, safeImageUrl, slug, JSON.stringify(metaData), id]
     );
-    if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Page not founda" });
+
+    if (pageResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Page not found" });
     }
-    res.json({ success: true, data: result.rows[0] });
+
+    res.json({ success: true, data: pageResult.rows[0] });
+
   } catch (error) {
+    console.error("Błąd zapisu:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Usuń stronę (requires token)
+//Delete page
 app.delete("/api/pages/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -347,7 +464,7 @@ app.delete("/api/pages/:id", authenticateToken, async (req, res) => {
 
 // === ENDPOINTS FOR MENU ===
 
-// Get wszystkie pozycje menu
+// Get all menu items
 app.get("/api/menu-items", async (req, res) => {
   try {
     const result = await query(`
@@ -362,7 +479,7 @@ app.get("/api/menu-items", async (req, res) => {
   }
 });
 
-// Utwórz nową pozycję menu (requires token)
+//Create new menu item
 app.post("/api/menu-items", authenticateToken, async (req, res) => {
   try {
     const { name, description, price, currency_id } = req.body;
@@ -376,7 +493,7 @@ app.post("/api/menu-items", authenticateToken, async (req, res) => {
   }
 });
 
-// Update pozycję menu (requires token)
+// Update menu item
 app.put("/api/menu-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -396,7 +513,7 @@ app.put("/api/menu-items/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// Usuń pozycję menu (requires token)
+//Delete menu item
 app.delete("/api/menu-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -416,11 +533,10 @@ app.delete("/api/menu-items/:id", authenticateToken, async (req, res) => {
 });
 
 // === ENDPOINTS FOR ChefY (CHEFS) ===
-console.log("--> REJESTRACJA ENDPOINTÓW CHEFS..."); // Log diagnostyczny
+console.log("--> REJESTRACJA ENDPOINTÓW CHEFS...");
 
 app.get("/api/chefs", async (req, res) => {
   try {
-    // Łączymy tabelę kucharzy z tabelą page_content, żeby wyciągnąć image_url
     const result = await query(`
       SELECT c.*, p.image_url 
       FROM chef_item c
@@ -432,37 +548,7 @@ app.get("/api/chefs", async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-// 2. BULK UPDATE (KLUCZOWY ENDPOINT DO ZAPISU)
-/*app.put("/api/chefs", authenticateToken, async (req, res) => {
-  console.log("--> PUT /api/chefs called"); // LOG DIAGNOSTYCZNY
-  try {
-    const { chefs } = req.body;
-    if (!chefs || !Array.isArray(chefs)) {
-      return res.status(400).json({ success: false, error: "Missing chefs array" });
-    }
 
-    const updatePromises = chefs.map((chef) =>
-      query(
-        `UPDATE chef_item SET 
-          name = $1, surname = $2, specialization = $3, 
-          facebook_link = $4, instagram_link = $5, twitter_link = $6, 
-          image_url = $7, last_modification_time = CURRENT_TIMESTAMP 
-        WHERE id = $8 RETURNING *`,
-        [
-          chef.name, chef.surname, chef.specialization, 
-          chef.facebook_link, chef.instagram_link, chef.twitter_link, 
-          chef.image_url, chef.id
-        ]
-      )
-    );
-
-    const results = await Promise.all(updatePromises);
-    res.json({ success: true, data: results.map((r) => r.rows[0]) });
-  } catch (error) {
-    console.error("Chef update error:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});*/
 
 app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
@@ -479,11 +565,8 @@ app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
       image_url 
     } = req.body;
 
-    // ZABEZPIECZENIE: Jeśli image_url jest null/undefined, zamień na pusty string
-    // Baza ma NOT NULL, więc musimy coś tam wstawić.
     const safeImageUrl = image_url || ""; 
 
-    // 1. Update chef_item
     await query(
       `UPDATE chef_item SET 
         name = $1, surname = $2, specialization = $3, 
@@ -492,7 +575,6 @@ app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
       [name, surname, specialization, facebook_link, instagram_link, twitter_link, id]
     );
 
-    // 2. Update page_content (używamy safeImageUrl)
     await query(
       `UPDATE page_content SET 
         image_url = $1,
@@ -501,7 +583,6 @@ app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
       [safeImageUrl, id]
     );
 
-    // 3. Pobranie wyniku
     const result = await query(
       `SELECT c.*, p.image_url 
        FROM chef_item c
@@ -528,18 +609,49 @@ app.post("/api/chefs", authenticateToken, async (req, res) => {
   try {
     const {
       name, surname, specialization, facebook_link, instagram_link, twitter_link,
-      image_url, position = 0, is_active = true
+      image_url, // To pole musi trafić do page_content!
+      position = 0, is_active = true
     } = req.body;
 
-    const result = await query(
-      `INSERT INTO chef_item 
-      (name, surname, specialization, facebook_link, instagram_link, twitter_link, image_url, item_type, position, is_active, creation_time) 
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'Chef', $8, $9, CURRENT_TIMESTAMP) 
-      RETURNING *`,
-      [name, surname, specialization, facebook_link, instagram_link, twitter_link, image_url || null, position, is_active]
+    // Walidacja
+    if (!name || !surname) {
+      return res.status(400).json({ success: false, error: "Imie i nazwisko są wymagane!" });
+    }
+
+    // KROK 1: Wstawiamy dane do tabeli nadrzędnej (page_content)
+    // Tu zapisujemy image_url oraz item_type
+    const contentResult = await query(
+      `INSERT INTO page_content 
+       (item_type, image_url, position, is_active, creation_time) 
+       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) 
+       RETURNING id`,
+      ['Chef', image_url || '', position, is_active]
     );
-    res.status(201).json({ success: true, data: result.rows[0] });
+
+    const newId = contentResult.rows[0].id; // Pobieramy wygenerowane ID
+
+    // KROK 2: Wstawiamy dane szczegółowe do tabeli podrzędnej (chef_item)
+    // Używamy tego samego ID (newId), co łączy obie tabele
+    const chefResult = await query(
+      `INSERT INTO chef_item 
+       (id, name, surname, specialization, facebook_link, instagram_link, twitter_link) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) 
+       RETURNING *`,
+      [newId, name, surname, specialization, facebook_link, instagram_link, twitter_link]
+    );
+
+    // KROK 3: Sklejamy wynik, żeby frontend dostał kompletny obiekt od razu
+    const fullData = {
+        ...chefResult.rows[0], // Dane kucharza
+        image_url: image_url,  // Dane z contentu
+        item_type: 'Chef',
+        is_active: is_active
+    };
+
+    res.status(201).json({ success: true, data: fullData });
+
   } catch (error) {
+    console.error("Błąd dodawania kucharza:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -558,7 +670,7 @@ app.delete("/api/chefs/:id", authenticateToken, async (req, res) => {
 
 // === ENDPOINTS FOR NAWIGACJI ===
 
-// Get wszystkie elementy nawigacji
+//Get navigation
 app.get("/api/navigation", async (req, res) => {
   try {
     const result = await query(`
@@ -576,7 +688,7 @@ app.get("/api/navigation", async (req, res) => {
   }
 });
 
-// Utwórz nowy Navigation item (requires token)
+//Create new navigation item
 app.post("/api/navigation", authenticateToken, async (req, res) => {
   try {
     const { title, position, url, is_active, navigation_id, creator_id } =
@@ -625,7 +737,7 @@ app.put("/api/navigation/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// Usuń Navigation item (requires token)
+//Delete navigation item (requires token)
 app.delete("/api/navigation/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;

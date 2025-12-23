@@ -3,58 +3,66 @@ import API_CONFIG from "../config/api";
 class BaseService {
   async request(endpoint, options = {}) {
     const url = `${API_CONFIG.BASE_URL}${endpoint}`;
+    
+    // 1. Pobierz token
     const token = localStorage.getItem("authToken");
 
+    // 2. Przygotuj obiekt nagłówków
+    const headers = { ...options.headers };
+
+    // 3. Dodaj Content-Type (jeśli to nie upload pliku FormData)
     const isFormData = options.body instanceof FormData;
+    if (!isFormData && !headers["Content-Type"]) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    // 4. Dodaj Token (Bezpieczne przypisanie)
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    // Diagnostyka (opcjonalna, możesz usunąć po naprawieniu)
+    // console.log(`[BaseService] Wysyłam do: ${endpoint}, Token: ${token ? "TAK" : "NIE"}`);
 
     const config = {
-      headers: {
-        //"Content-Type": "application/json",
-        ...(isFormData ? {} : { "Content-Type": "application/json" }),
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...options.headers,
-      },
       ...options,
+      headers: headers,
     };
-try {
+
+    try {
       const response = await fetch(url, config);
 
-      // 1. Pobieramy odpowiedź jako tekst, a nie od razu JSON
-      // To chroni nas przed błędami, gdy serwer zwraca HTML (np. błąd 404/500)
+      if (response.status === 401) {
+        console.error("Błąd 401: Token odrzucony.");
+        // Opcjonalnie: automatyczne wylogowanie
+        // window.location.href = '/login';
+        return { success: false, error: "Sesja wygasła. Zaloguj się ponownie." };
+      }
+
       const text = await response.text();
       let data;
-
       try {
-        // 2. Próbujemy sparsować JSON
         data = text ? JSON.parse(text) : {};
       } catch (e) {
-        // Jeśli się nie uda, to znaczy, że serwer zwrócił np. stronę HTML z błędem
-        console.error(`[BaseService] Błąd parsowania JSON dla ${endpoint}. Otrzymano:`, text);
-        throw new Error(`Błąd serwera (${response.status}): Otrzymano nieprawidłową odpowiedź.`);
+        // Jeśli serwer nie zwrócił JSONa (np. pusty 204 lub błąd HTML)
+        return { success: response.ok, data: null };
       }
 
-      // 3. Sprawdzamy status HTTP (czy jest w zakresie 200-299)
       if (!response.ok) {
-        const errorMessage = data.error || `Błąd HTTP ${response.status}`;
-        // Zwracamy obiekt błędu w formacie oczekiwanym przez Twój frontend
-        return { success: false, error: errorMessage };
+        return { success: false, error: data.error || `Błąd HTTP ${response.status}` };
       }
 
-      // 4. Jeśli wszystko ok, zwracamy dane
       return data;
-
     } catch (error) {
       console.error("Request failed:", error);
-      // Zwracamy obiekt błędu, żeby frontend (np. ChefPage) mógł go wyświetlić
       return { success: false, error: error.message };
     }
   }
 
   async uploadFile(endpoint, file) {
     const formData = new FormData();
-    formData.append("image", file); // Klucz "image" musi zgadzać się z tym w backendzie (upload.single('image'))
+    formData.append("image", file); 
 
-    // Wywołujemy request, który sam obsłuży token i nagłówki
     return this.request(endpoint, {
       method: "POST",
       body: formData,
@@ -62,5 +70,5 @@ try {
   }
 }
 
+// --- POPRAWKA TUTAJ: Eksportujemy Klasę, a nie 'new BaseService()' ---
 export default BaseService;
-
