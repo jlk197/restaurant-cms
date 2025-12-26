@@ -8,6 +8,8 @@ import ChefPage from "./pages/Dashboard/ChefPage";
 import ContactPage from "./pages/Dashboard/ContactPage";
 import Configuration from "./pages/Configuration/index";
 import PagesPage from "./pages/Dashboard/PagesPage";
+import MenuPage from "./pages/Dashboard/MenuPage";
+import PageItemPage from "./pages/Dashboard/PageItemPage";
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -63,6 +65,10 @@ function App() {
           <Route path="contact" element={<ContactPage />} />
           <Route path="configuration" element={<Configuration/>} />
           <Route path="pages" element={<PagesPage/>} />
+          <Route path="menu" element={<MenuPage/>} />
+          <Route path="page-item" element={<PageItemPage/>} />
+
+
         </Route>
 
         <Route

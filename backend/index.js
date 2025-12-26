@@ -464,69 +464,109 @@ app.delete("/api/pages/:id", authenticateToken, async (req, res) => {
 
 // === ENDPOINTS FOR MENU ===
 
-// Get all menu items
 app.get("/api/menu-items", async (req, res) => {
   try {
     const result = await query(`
-      SELECT m.*, c.code as currency_code, c.name as currency_name
+      SELECT 
+        m.*, 
+        pc.image_url, pc.is_active, pc.position, pc.creation_time,
+        c.code as currency_code, c.name as currency_name
       FROM menu_item m
+      JOIN page_content pc ON m.id = pc.id   -- KLUCZOWE ŁĄCZENIE
       LEFT JOIN currency c ON m.currency_id = c.id
-      ORDER BY m.id
+      ORDER BY pc.creation_time DESC
     `);
     res.json({ success: true, data: result.rows });
   } catch (error) {
+    console.error("Błąd pobierania menu:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-//Create new menu item
+// 2. CREATE NEW MENU ITEM (Musi najpierw utworzyć page_content!)
 app.post("/api/menu-items", authenticateToken, async (req, res) => {
   try {
-    const { name, description, price, currency_id } = req.body;
-    const result = await query(
-      "INSERT INTO menu_item (name, description, price, currency_id) VALUES ($1, $2, $3, $4) RETURNING *",
-      [name, description, price, currency_id]
+    const { 
+        name, description, price, currency_id, 
+        image_url, is_active = true // Te pola idą do page_content
+    } = req.body;
+
+    // KROK A: Wstawiamy do tabeli-matki (Page Content)
+    // To nam wygeneruje unikalne ID
+    const contentResult = await query(
+      `INSERT INTO page_content (item_type, image_url, is_active, creation_time) 
+       VALUES ('Menu_Item', $1, $2, CURRENT_TIMESTAMP) 
+       RETURNING id`,
+      [image_url || '', is_active]
     );
-    res.status(201).json({ success: true, data: result.rows[0] });
+    
+    const newId = contentResult.rows[0].id;
+
+    // KROK B: Wstawiamy do tabeli-dziecka (Menu Item) używając TEGO SAMEGO ID
+    const menuResult = await query(
+      `INSERT INTO menu_item (id, name, description, price, currency_id) 
+       VALUES ($1, $2, $3, $4, $5) 
+       RETURNING *`,
+      [newId, name, description, price, currency_id || 1] // Domyślnie waluta ID 1 (PLN)
+    );
+
+    // Zwracamy połączone dane
+    res.status(201).json({ 
+        success: true, 
+        data: { ...menuResult.rows[0], image_url, is_active } 
+    });
+
   } catch (error) {
+    console.error("Błąd dodawania dania:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Update menu item
+// 3. UPDATE MENU ITEM (Musi aktualizować obie tabele)
 app.put("/api/menu-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, price, currency_id } = req.body;
+    const { name, description, price, currency_id, image_url } = req.body;
+
+    // Aktualizacja tabeli-matki (jeśli zmieniło się zdjęcie)
+    await query("UPDATE page_content SET image_url = $1 WHERE id = $2", [image_url, id]);
+
+    // Aktualizacja tabeli-dziecka (dane tekstowe)
     const result = await query(
-      "UPDATE menu_item SET name = $1, description = $2, price = $3, currency_id = $4 WHERE id = $5 RETURNING *",
+      `UPDATE menu_item 
+       SET name = $1, description = $2, price = $3, currency_id = $4 
+       WHERE id = $5 
+       RETURNING *`,
       [name, description, price, currency_id, id]
     );
+
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Menu item not founda" });
+      return res.status(404).json({ success: false, error: "Menu item not found" });
     }
+
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-//Delete menu item
+// 4. DELETE MENU ITEM (Usuwamy rodzica, kaskada usunie dziecko)
 app.delete("/api/menu-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Usuwamy z page_content. Dzięki 'ON DELETE CASCADE' w bazie, 
+    // rekord z menu_item zniknie automatycznie.
     const result = await query(
-      "DELETE FROM menu_item WHERE id = $1 RETURNING id",
+      "DELETE FROM page_content WHERE id = $1 RETURNING id",
       [id]
     );
+
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Menu item not founda" });
+      return res.status(404).json({ success: false, error: "Menu item not found" });
     }
-    res.json({ success: true, message: "Menu item została usunięta" });
+    
+    res.json({ success: true, message: "Menu item deleted successfully" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -1090,6 +1130,103 @@ app.delete("/api/contact-items/:id", authenticateToken, async (req, res) => {
     }
     res.json({ success: true, message: "Contact item został usunięty" });
   } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get("/api/page-items", async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT 
+        pi.*, 
+        pc.image_url, pc.is_active, pc.position, pc.creation_time
+      FROM page_item pi
+      JOIN page_content pc ON pi.id = pc.id
+      ORDER BY pc.position ASC, pc.creation_time DESC
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error("Błąd pobierania sekcji:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 2. CREATE NEW PAGE ITEM
+app.post("/api/page-items", authenticateToken, async (req, res) => {
+  try {
+    const { title, description, type, image_url, is_active = true, position = 0 } = req.body;
+
+    const contentResult = await query(
+      `INSERT INTO page_content (item_type, image_url, is_active, position, creation_time) 
+       VALUES ('Page_Item', $1, $2, $3, CURRENT_TIMESTAMP) 
+       RETURNING id`,
+      [image_url || '', is_active, position]
+    );
+    
+    const newId = contentResult.rows[0].id;
+    const itemResult = await query(
+      `INSERT INTO page_item (id, title, description, type) 
+       VALUES ($1, $2, $3, $4) 
+       RETURNING *`,
+      [newId, title, description, type]
+    );
+
+    res.status(201).json({ success: true, data: { ...itemResult.rows[0], image_url, is_active, position } });
+  } catch (error) {
+    console.error("Błąd tworzenia sekcji:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. UPDATE PAGE ITEM
+app.put("/api/page-items/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, type, image_url, is_active, position } = req.body;
+
+    await query(
+      "UPDATE page_content SET image_url = $1, is_active = $2, position = $3 WHERE id = $4", 
+      [
+        image_url, 
+        is_active, 
+        position !== undefined ? position : 0,
+        id
+      ]
+    );
+
+    const result = await query(
+      `UPDATE page_item SET title = $1, description = $2, type = $3 WHERE id = $4 RETURNING *`,
+      [title, description, type, id]
+    );
+
+    res.json({ 
+        success: true, 
+        data: { ...result.rows[0], image_url, is_active, position } 
+    });
+
+  } catch (error) {
+    console.error("Błąd edycji sekcji:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete("/api/page-items/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await query("DELETE FROM page_item WHERE id = $1", [id]);
+    const result = await query(
+      "DELETE FROM page_content WHERE id = $1 RETURNING id", 
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Nie znaleziono elementu" });
+    }
+
+    res.json({ success: true, message: "Sekcja usunięta pomyślnie" });
+
+  } catch (error) {
+    console.error("Błąd usuwania sekcji:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
