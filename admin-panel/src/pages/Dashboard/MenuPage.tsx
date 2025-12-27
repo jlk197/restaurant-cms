@@ -53,7 +53,7 @@ export default function MenuPage() {
                             <div className="flex items-center justify-center h-full text-gray-400">No Photo</div>
                         )}
                         <span className="absolute top-2 right-2 bg-white dark:bg-gray-900 px-3 py-1 rounded-full text-sm font-bold text-green-600 shadow-sm">
-                            {item.price} PLN
+                            {item.price} {item.currency_code || 'PLN'}
                         </span>
                     </div>
                     <div className="p-4">

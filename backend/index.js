@@ -246,6 +246,59 @@ app.post("/api/administrators/login", async (req, res) => {
   }
 });*/
 
+app.get("/api/content", async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT 
+        pc.id, 
+        pc.item_type, 
+        pc.image_url, 
+        pc.is_active, 
+        pc.position, 
+        pc.creation_time,
+        -- Sprytne łączenie nazwy w jedną kolumnę 'display_name' zależnie od tabeli
+        COALESCE(
+            m.name, 
+            pi.title, 
+            (c.name || ' ' || c.surname)
+        ) as display_name,
+        -- Dodatkowe info (opcjonalnie)
+        COALESCE(m.price::text, pi.type, c.specialization) as info_label
+      FROM page_content pc
+      LEFT JOIN menu_item m ON pc.id = m.id
+      LEFT JOIN page_item pi ON pc.id = pi.id
+      LEFT JOIN chef_item c ON pc.id = c.id
+      ORDER BY pc.position ASC, pc.creation_time DESC
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error("Błąd pobierania contentu:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 2. SZYBKA EDYCJA (TYLKO POSITION I ACTIVE)
+app.put("/api/content/:id/settings", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { position, is_active } = req.body;
+
+    const result = await query(
+      `UPDATE page_content 
+       SET position = $1, is_active = $2 
+       WHERE id = $3 
+       RETURNING *`,
+      [position, is_active, id]
+    );
+
+    if (result.rows.length === 0) return res.status(404).json({ success: false, error: "Nie znaleziono" });
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Get all content
 app.get("/api/content/available", async (req, res) => {
   try {
@@ -454,9 +507,9 @@ app.delete("/api/pages/:id", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res
         .status(404)
-        .json({ success: false, error: "Page not founda" });
+        .json({ success: false, error: "Page not found" });
     }
-    res.json({ success: true, message: "Page została usunięta" });
+    res.json({ success: true, message: "Page deleted" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -998,7 +1051,7 @@ app.delete("/api/configuration/:key", authenticateToken, async (req, res) => {
 // Get wszystkie waluty
 app.get("/api/currencies", async (req, res) => {
   try {
-    const result = await query("SELECT * FROM currency ORDER BY code");
+    const result = await query("SELECT * FROM currency ORDER BY id");
     res.json({ success: true, data: result.rows });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -1016,6 +1069,19 @@ app.post("/api/currencies", authenticateToken, async (req, res) => {
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. DELETE CURRENCY
+app.delete("/api/currencies/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Sprawdzamy czy waluta jest używana? Na razie zakładamy proste usunięcie.
+    // Jeśli jest używana w menu, baza wyrzuci błąd (foreign key), co jest dobrym zabezpieczeniem.
+    await query("DELETE FROM currency WHERE id = $1", [id]);
+    res.json({ success: true, message: "Waluta usunięta" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Nie można usunąć waluty (prawdopodobnie jest przypisana do dań)." });
   }
 });
 

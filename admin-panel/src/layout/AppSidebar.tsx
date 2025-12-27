@@ -55,16 +55,37 @@ const navItems: NavItem[] = [
     icon: <TableIcon />,
     subItems: [{ name: "Basic Tables", path: "basic-tables", pro: false }],
   },
-  {
-    name: "Pages",
+    {
     icon: <PageIcon />,
+    name: "Pages",
+    path: "pages",
+  },
+  {
+    name: "Other Pages",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
+      </svg>
+    ),
     subItems: [
-      { name: "Chef Page", path: "chef", pro: false},
-      { name: "Pages", path: "pages", pro: false},
-      { name: "Menu Page", path: "menu", pro: false },
-      { name: "Page Items", path: "page-item", pro: false },
       { name: "Blank Page", path: "blank", pro: false },
       { name: "404 Error", path: "error-404", pro: false },
+    ],
+  },
+    {
+    name: "Site content",
+    icon: (
+      <svg width="800px" height="800px" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M21 9V7C21 6.44772 20.5523 6 20 6H10L9 4H4L3.21115 5.57771C3.07229 5.85542 3 6.16165 3 6.47214V9" strokeWidth={1.5} stroke="currentColor"/>
+      <path d="M3.91321 20H20.0868C20.604 20 21.0359 19.6056 21.0827 19.0905L21.9009 10.0905C21.9541 9.50492 21.493 9 20.905 9H3.09503C2.507 9 2.0459 9.50492 2.09914 10.0905L2.91732 19.0905C2.96415 19.6056 3.39601 20 3.91321 20Z" strokeWidth={1.5}  stroke="currentColor" />
+      </svg>
+    ),
+    subItems: [
+      { name: "Chefs", path: "chef", pro: false},
+      { name: "Menu", path: "menu", pro: false },
+      { name: "Page Items", path: "page-item", pro: false },
+      { name: "Currencies", path: "currency", pro: false },
+
     ],
   },
 ];

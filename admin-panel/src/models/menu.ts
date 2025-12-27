@@ -22,5 +22,6 @@ export interface MenuItemFormData {
   description: string;
   price: string | number;
   image_url: string;
+  currency_id?: number;
   is_active?: boolean;
 }

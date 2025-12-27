@@ -1,5 +1,6 @@
 import PageMeta from "../../components/common/PageMeta";
 import { Link } from 'react-router-dom';
+import ContentPage from "./ContentPage";
 
 const menuTiles = [
   {
@@ -70,7 +71,7 @@ export default function Home() {
       {/* Wyśrodkowany Nagłówek z powiększonym tekstem */}
       <div className="mb-10 flex flex-col items-center justify-center gap-2">
         <h2 className="text-3xl md:text-4xl font-bold text-center text-black dark:text-white">
-          Witaj w Panelu Restauracji
+          Welcome in Restaurant Panel
         </h2>
         <nav>
           <ol className="flex items-center gap-2 text-lg">
@@ -113,6 +114,11 @@ export default function Home() {
           </Link>
         ))}
       </div>
+
+      <div className="mt-10">
+         <ContentPage />
+      </div>
+
     </>
   );
 }

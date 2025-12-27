@@ -10,6 +10,8 @@ import Configuration from "./pages/Configuration/index";
 import PagesPage from "./pages/Dashboard/PagesPage";
 import MenuPage from "./pages/Dashboard/MenuPage";
 import PageItemPage from "./pages/Dashboard/PageItemPage";
+import ContentPage from "./pages/Dashboard/ContentPage";
+import CurrencyPage from "./pages/Dashboard/CurrencyPage";
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -67,6 +69,9 @@ function App() {
           <Route path="pages" element={<PagesPage/>} />
           <Route path="menu" element={<MenuPage/>} />
           <Route path="page-item" element={<PageItemPage/>} />
+          <Route path="page-content" element={<ContentPage/>} />
+          <Route path="currency" element={<CurrencyPage/>} />
+
 
 
         </Route>

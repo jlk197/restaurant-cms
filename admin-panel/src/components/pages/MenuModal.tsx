@@ -6,12 +6,15 @@ import Button from "../ui/button/Button";
 import ImageUpload from "../form/input/ImageUpload";
 import MenuService from "../../services/menuService";
 import { MenuItemFormData } from "../../models/menu";
+import { Currency } from "../../models/currency";
+import currencyService from "../../services/currencyService"
 
 interface MenuItem {
   id?: number;
   name: string;
   description: string;
   price: string | number;
+  currency_id?: number;
   image_url: string;
 }
 
@@ -27,23 +30,38 @@ export default function MenuModal({ isOpen, closeModal, onSuccess, itemToEdit }:
     name: "",
     description: "",
     price: "",
-    image_url: ""
-});
+    currency_id: 1,
+    image_url: "",
+  });
+
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const fetchCurrenciesData = async () => {
+        const res = await currencyService.getAll();
+        if (res.success) {
+            setCurrencies(res.data);
+            if (!itemToEdit && res.data.length > 0) {
+                setFormData(prev => ({ ...prev, currency_id: res.data[0].id }));
+            }
+        }
+    };
+
     if (isOpen) {
+      fetchCurrenciesData();
       if (itemToEdit) {
         setFormData({
             id: itemToEdit.id,
             name: itemToEdit.name || "",
             description: itemToEdit.description || "",
             price: itemToEdit.price || "",
+            currency_id: itemToEdit.currency_id || 1,
             image_url: itemToEdit.image_url || ""
         });
       } else {
-        setFormData({ name: "", description: "", price: "", image_url: "" });
+        setFormData({ name: "", description: "", price: "", currency_id: 1, image_url: "" });
       }
       setError("");
     }
@@ -100,15 +118,29 @@ export default function MenuModal({ isOpen, closeModal, onSuccess, itemToEdit }:
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-            <div>
-                <Label>Price (PLN)</Label>
-                <Input 
-                    type="number" 
-                    step={0.01}
-                    value={formData.price} 
-                    onChange={(e) => setFormData({...formData, price: e.target.value})} 
-                    required 
-                />
+            {/* CENA I WALUTA OBOK SIEBIE */}
+            <div className="col-span-1">
+                <Label>Price</Label>
+                <div className="flex gap-2">
+                    <Input 
+                        type="number" 
+                        step={0.01}
+                        value={formData.price} 
+                        onChange={(e) => setFormData({...formData, price: e.target.value})} 
+                        required 
+                        className="flex-grow"
+                    />
+                    {/* SELECT DO WYBORU WALUTY */}
+                    <select
+                        className="p-3 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none w-24"
+                        value={formData.currency_id}
+                        onChange={(e) => setFormData({...formData, currency_id: Number(e.target.value)})}
+                    >
+                        {currencies.map(curr => (
+                            <option key={curr.id} value={curr.id}>{curr.code}</option>
+                        ))}
+                    </select>
+                </div>
             </div>
             <div>
                  <Label>Dish Photo</Label>
