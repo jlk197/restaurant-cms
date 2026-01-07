@@ -6,11 +6,13 @@ import Home from "./pages/Dashboard/Home";
 import UserProfiles from "./pages/Admins/UserProfiles";
 import AppLayout from "./layout/AppLayout";
 import ChefPage from "./pages/Dashboard/ChefPage";
-import Configuration from "./pages/Configuration";
-import ContactItemsPage from "./pages/Contact/Items";
-import ContactTypesPage from "./pages/Contact/Types";
-import SliderImages from "./pages/SliderImages";
-import Navigation from "./pages/Navigation";
+import ContactPage from "./pages/Dashboard/ContactPage";
+import Configuration from "./pages/Configuration/index";
+import PagesPage from "./pages/Dashboard/PagesPage";
+import MenuPage from "./pages/Dashboard/MenuPage";
+import PageItemPage from "./pages/Dashboard/PageItemPage";
+import ContentPage from "./pages/Dashboard/ContentPage";
+import CurrencyPage from "./pages/Dashboard/CurrencyPage";
 
 function App() {
   const isTokenValid = (token) => {
@@ -85,11 +87,16 @@ function App() {
           <Route path="dashboard" element={<Home onLogout={handleLogout} />} />
           <Route path="administrators" element={<UserProfiles />} />
           <Route path="chef" element={<ChefPage />} />
-          <Route path="contact/types" element={<ContactTypesPage />} />
-          <Route path="contact/items" element={<ContactItemsPage />} />
-          <Route path="configuration" element={<Configuration />} />
-          <Route path="slider-images" element={<SliderImages />} />
-          <Route path="navigation" element={<Navigation />} />
+          <Route path="contact" element={<ContactPage />} />
+          <Route path="configuration" element={<Configuration/>} />
+          <Route path="pages" element={<PagesPage/>} />
+          <Route path="menu" element={<MenuPage/>} />
+          <Route path="page-item" element={<PageItemPage/>} />
+          <Route path="page-content" element={<ContentPage/>} />
+          <Route path="currency" element={<CurrencyPage/>} />
+
+
+
         </Route>
 
         <Route

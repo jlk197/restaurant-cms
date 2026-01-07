@@ -270,7 +270,7 @@ app.post("/api/administrators/login", async (req, res) => {
 // === PAGE ENDPOINTS ===
 
 // Get all pages
-app.get("/api/pages", async (req, res) => {
+/*app.get("/api/pages", async (req, res) => {
   try {
     const result = await query(`
       SELECT p.*,
@@ -285,45 +285,210 @@ app.get("/api/pages", async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
+});*/
+
+app.get("/api/content", async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT 
+        pc.id, 
+        pc.item_type, 
+        pc.image_url, 
+        pc.is_active, 
+        pc.position, 
+        pc.creation_time,
+        -- Sprytne łączenie nazwy w jedną kolumnę 'display_name' zależnie od tabeli
+        COALESCE(
+            m.name, 
+            pi.title, 
+            (c.name || ' ' || c.surname)
+        ) as display_name,
+        -- Dodatkowe info (opcjonalnie)
+        COALESCE(m.price::text, pi.type, c.specialization) as info_label
+      FROM page_content pc
+      LEFT JOIN menu_item m ON pc.id = m.id
+      LEFT JOIN page_item pi ON pc.id = pi.id
+      LEFT JOIN chef_item c ON pc.id = c.id
+      ORDER BY pc.position ASC, pc.creation_time DESC
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error("Błąd pobierania contentu:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
-// Get stronę po ID
-app.get("/api/pages/:id", async (req, res) => {
+// 2. SZYBKA EDYCJA (TYLKO POSITION I ACTIVE)
+app.put("/api/content/:id/settings", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const { position, is_active } = req.body;
+
     const result = await query(
-      `SELECT p.*,
-        a1.name || ' ' || a1.surname as creator_name,
-        a2.name || ' ' || a2.surname as modificator_name
-      FROM page p
-      LEFT JOIN administrator a1 ON p.creator_id = a1.id
-      LEFT JOIN administrator a2 ON p.last_modificator_id = a2.id
-      WHERE p.id = $1`,
-      [id]
+      `UPDATE page_content 
+       SET position = $1, is_active = $2 
+       WHERE id = $3 
+       RETURNING *`,
+      [position, is_active, id]
     );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: "Page not founda" });
-    }
+
+    if (result.rows.length === 0) return res.status(404).json({ success: false, error: "Nie znaleziono" });
+
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Utwórz nową stronę (requires token)
+// Get all content
+app.get("/api/content/available", async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT 
+        pc.id, pc.item_type,
+        c.name as chef_name, c.surname as chef_surname,
+        m.name as menu_name
+      FROM page_content pc
+      LEFT JOIN chef_item c ON pc.id = c.id
+      LEFT JOIN menu_item m ON pc.id = m.id
+      ORDER BY pc.id DESC
+    `);
+    
+    const formatted = result.rows.map(row => {
+      let label = `ID: ${row.id} (${row.item_type})`;
+      if (row.chef_name) label = `👨‍🍳 ${row.chef_name} ${row.chef_surname}`;
+      else if (row.menu_name) label = `🍽️ ${row.menu_name}`;
+      
+      return {
+        id: row.id,
+        type: row.item_type,
+        label: label
+      };
+    });
+
+    res.json({ success: true, data: formatted });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get pages with content
+app.get("/api/pages", async (req, res) => {
+  console.log("[API] Pobieranie listy stron...");
+  try {
+    const pagesResult = await query("SELECT * FROM page ORDER BY creation_time DESC");
+  
+    const pagesWithContent = await Promise.all(pagesResult.rows.map(async (page) => {
+      
+      let meta = page.meta_data;
+      
+      if (typeof meta === 'string') {
+        try {
+          meta = JSON.parse(meta);
+        } catch (e) {
+          console.error(`Błąd parsowania JSON dla strony ${page.id}`, e);
+          meta = {}; 
+        }
+      } else if (!meta) {
+        meta = {};
+      }
+      
+      const contentIds = meta.content_ids || [];
+      
+      let contentPreviews = [];
+
+      if (Array.isArray(contentIds) && contentIds.length > 0) {
+        try {
+          const contents = await query(`
+            SELECT pc.item_type, 
+                   ci.name as chef_name, ci.surname as chef_surname,
+                   mi.name as menu_name
+            FROM page_content pc
+            LEFT JOIN chef_item ci ON pc.id = ci.id
+            LEFT JOIN menu_item mi ON pc.id = mi.id
+            WHERE pc.id = ANY($1::int[])
+          `, [contentIds]);
+
+          contentPreviews = contents.rows.map(row => {
+              if (row.chef_name) return `👨‍🍳 ${row.chef_name} ${row.chef_surname}`;
+              if (row.menu_name) return `🍽️ ${row.menu_name}`;
+              return row.item_type; // Np. "menu_item" jeśli nie ma nazwy
+          });
+        } catch (err) {
+          console.error(`Błąd SQL przy stronie ${page.id}:`, err);
+        }
+      }
+      if (contentPreviews.length > 0) {
+          console.log(`-> Strona "${page.title}" ma content:`, contentPreviews);
+      }
+      return { ...page, contentPreviews };
+    }));
+
+    res.json({ success: true, data: pagesWithContent });
+  } catch (error) {
+    console.error("Błąd globalny /api/pages:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// --- POBIERANIE JEDNEJ STRONY (Z naprawionym odczytem JSON) ---
+app.get("/api/pages/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const pageResult = await query("SELECT * FROM page WHERE id = $1", [id]);
+    
+    if (pageResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Page not found" });
+    }
+
+    const page = pageResult.rows[0];
+
+    let meta = page.meta_data;
+    if (typeof meta === 'string') {
+        try { meta = JSON.parse(meta); } catch (e) { meta = {}; }
+    }
+    
+    const contentIds = meta?.content_ids || [];
+    let contents = [];
+
+    if (Array.isArray(contentIds) && contentIds.length > 0) {
+      const contentResult = await query(`
+        SELECT id, item_type 
+        FROM page_content 
+        WHERE id = ANY($1::int[])
+      `, [contentIds]);
+      
+      contents = contentResult.rows;
+    }
+
+    res.json({ 
+      success: true, 
+      data: { 
+        ...page, 
+        contents: contents 
+      } 
+    });
+
+  } catch (error) {
+    console.error("Błąd /api/pages/:id:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+//Create new page
 app.post("/api/pages", authenticateToken, async (req, res) => {
   try {
-    const {
-      title,
-      description,
-      header_image_url,
-      slug,
-      meta_data,
-      creator_id,
-    } = req.body;
+    const { title, description, header_image_url, slug, contents } = req.body;
+    const safeImageUrl = header_image_url || "";
+    
+    // Tworzymy JSON z IDkami contentu
+    const metaData = { content_ids: contents || [] };
+
     const result = await query(
-      "INSERT INTO page (title, description, header_image_url, slug, meta_data, creator_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-      [title, description, header_image_url, slug, meta_data, creator_id]
+      `INSERT INTO page (title, description, header_image_url, slug, meta_data, creation_time) 
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP) 
+       RETURNING *`,
+      [title, description, safeImageUrl, slug, JSON.stringify(metaData)]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -331,40 +496,49 @@ app.post("/api/pages", authenticateToken, async (req, res) => {
   }
 });
 
-// Update stronę (requires token)
+//Edit page
 app.put("/api/pages/:id", authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  console.log(`[PUT] Aktualizacja strony ID: ${id}`);
+  
   try {
-    const { id } = req.params;
-    const {
-      title,
-      description,
-      header_image_url,
-      slug,
-      meta_data,
-      last_modificator_id,
-    } = req.body;
-    const result = await query(
-      "UPDATE page SET title = $1, description = $2, header_image_url = $3, slug = $4, meta_data = $5, last_modificator_id = $6, last_modification_time = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *",
-      [
-        title,
-        description,
-        header_image_url,
-        slug,
-        meta_data,
-        last_modificator_id,
-        id,
-      ]
+    // 1. Pobieramy 'contents' (tablica ID np. [10, 12]) z body
+    const { title, description, header_image_url, slug, contents } = req.body;
+    const safeImageUrl = header_image_url || "";
+
+    // 2. Pakujemy to w JSON. To jest kluczowy moment!
+    const metaData = {
+      content_ids: contents || [] 
+    };
+
+    console.log("[PUT] Dane do zapisu:", JSON.stringify(metaData));
+
+    // 3. Zapisujemy JSON do kolumny meta_data
+    const pageResult = await query(
+      `UPDATE page SET 
+        title = $1, 
+        description = $2, 
+        header_image_url = $3, 
+        slug = $4, 
+        meta_data = $5,  -- Tutaj wlatuje nasz JSON
+        last_modification_time = CURRENT_TIMESTAMP 
+       WHERE id = $6 RETURNING *`,
+      [title, description, safeImageUrl, slug, JSON.stringify(metaData), id]
     );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: "Page not founda" });
+
+    if (pageResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Page not found" });
     }
-    res.json({ success: true, data: result.rows[0] });
+
+    res.json({ success: true, data: pageResult.rows[0] });
+
   } catch (error) {
+    console.error("Błąd zapisu:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Usuń stronę (requires token)
+//Delete page
 app.delete("/api/pages/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -372,9 +546,11 @@ app.delete("/api/pages/:id", authenticateToken, async (req, res) => {
       id,
     ]);
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: "Page not founda" });
+      return res
+        .status(404)
+        .json({ success: false, error: "Page not found" });
     }
-    res.json({ success: true, message: "Page została usunięta" });
+    res.json({ success: true, message: "Page deleted" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -382,14 +558,124 @@ app.delete("/api/pages/:id", authenticateToken, async (req, res) => {
 
 // === ENDPOINTS FOR MENU ===
 
-// Get wszystkie pozycje menu
 app.get("/api/menu-items", async (req, res) => {
   try {
     const result = await query(`
-      SELECT m.*, c.code as currency_code, c.name as currency_name
+      SELECT 
+        m.*, 
+        pc.image_url, pc.is_active, pc.position, pc.creation_time,
+        c.code as currency_code, c.name as currency_name
       FROM menu_item m
+      JOIN page_content pc ON m.id = pc.id   -- KLUCZOWE ŁĄCZENIE
       LEFT JOIN currency c ON m.currency_id = c.id
-      ORDER BY m.id
+      ORDER BY pc.creation_time DESC
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error("Błąd pobierania menu:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 2. CREATE NEW MENU ITEM (Musi najpierw utworzyć page_content!)
+app.post("/api/menu-items", authenticateToken, async (req, res) => {
+  try {
+    const { 
+        name, description, price, currency_id, 
+        image_url, is_active = true // Te pola idą do page_content
+    } = req.body;
+
+    // KROK A: Wstawiamy do tabeli-matki (Page Content)
+    // To nam wygeneruje unikalne ID
+    const contentResult = await query(
+      `INSERT INTO page_content (item_type, image_url, is_active, creation_time) 
+       VALUES ('Menu_Item', $1, $2, CURRENT_TIMESTAMP) 
+       RETURNING id`,
+      [image_url || '', is_active]
+    );
+    
+    const newId = contentResult.rows[0].id;
+
+    // KROK B: Wstawiamy do tabeli-dziecka (Menu Item) używając TEGO SAMEGO ID
+    const menuResult = await query(
+      `INSERT INTO menu_item (id, name, description, price, currency_id) 
+       VALUES ($1, $2, $3, $4, $5) 
+       RETURNING *`,
+      [newId, name, description, price, currency_id || 1] // Domyślnie waluta ID 1 (PLN)
+    );
+
+    // Zwracamy połączone dane
+    res.status(201).json({ 
+        success: true, 
+        data: { ...menuResult.rows[0], image_url, is_active } 
+    });
+
+  } catch (error) {
+    console.error("Błąd dodawania dania:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. UPDATE MENU ITEM (Musi aktualizować obie tabele)
+app.put("/api/menu-items/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, price, currency_id, image_url } = req.body;
+
+    // Aktualizacja tabeli-matki (jeśli zmieniło się zdjęcie)
+    await query("UPDATE page_content SET image_url = $1 WHERE id = $2", [image_url, id]);
+
+    // Aktualizacja tabeli-dziecka (dane tekstowe)
+    const result = await query(
+      `UPDATE menu_item 
+       SET name = $1, description = $2, price = $3, currency_id = $4 
+       WHERE id = $5 
+       RETURNING *`,
+      [name, description, price, currency_id, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Menu item not found" });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 4. DELETE MENU ITEM (Usuwamy rodzica, kaskada usunie dziecko)
+app.delete("/api/menu-items/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Usuwamy z page_content. Dzięki 'ON DELETE CASCADE' w bazie, 
+    // rekord z menu_item zniknie automatycznie.
+    const result = await query(
+      "DELETE FROM page_content WHERE id = $1 RETURNING id",
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Menu item not found" });
+    }
+    
+    res.json({ success: true, message: "Menu item deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// === ENDPOINTS FOR ChefY (CHEFS) ===
+console.log("--> REJESTRACJA ENDPOINTÓW CHEFS...");
+
+app.get("/api/chefs", async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT c.*, p.image_url 
+      FROM chef_item c
+      LEFT JOIN page_content p ON c.id = p.id
+      ORDER BY c.id
     `);
     res.json({ success: true, data: result.rows });
   } catch (error) {
@@ -397,144 +683,120 @@ app.get("/api/menu-items", async (req, res) => {
   }
 });
 
-// Utwórz nową pozycję menu (requires token)
-app.post("/api/menu-items", authenticateToken, async (req, res) => {
-  try {
-    const { name, description, price, currency_id } = req.body;
-    const result = await query(
-      "INSERT INTO menu_item (name, description, price, currency_id) VALUES ($1, $2, $3, $4) RETURNING *",
-      [name, description, price, currency_id]
-    );
-    res.status(201).json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
-// Update pozycję menu (requires token)
-app.put("/api/menu-items/:id", authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, description, price, currency_id } = req.body;
-    const result = await query(
-      "UPDATE menu_item SET name = $1, description = $2, price = $3, currency_id = $4 WHERE id = $5 RETURNING *",
-      [name, description, price, currency_id, id]
-    );
-    if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Menu item not founda" });
-    }
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  console.log(`[PUT] Aktualizacja Chefa ID: ${id}`);
 
-// Usuń pozycję menu (requires token)
-app.delete("/api/menu-items/:id", authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
+    const {
+      name,
+      surname,
+      specialization,
+      facebook_link,
+      instagram_link,
+      twitter_link,
+      image_url 
+    } = req.body;
+
+    const safeImageUrl = image_url || ""; 
+
+    await query(
+      `UPDATE chef_item SET 
+        name = $1, surname = $2, specialization = $3, 
+        facebook_link = $4, instagram_link = $5, twitter_link = $6
+      WHERE id = $7`,
+      [name, surname, specialization, facebook_link, instagram_link, twitter_link, id]
+    );
+
+    await query(
+      `UPDATE page_content SET 
+        image_url = $1,
+        last_modification_time = CURRENT_TIMESTAMP
+      WHERE id = $2`,
+      [safeImageUrl, id]
+    );
+
     const result = await query(
-      "DELETE FROM menu_item WHERE id = $1 RETURNING id",
+      `SELECT c.*, p.image_url 
+       FROM chef_item c
+       JOIN page_content p ON c.id = p.id
+       WHERE c.id = $1`,
       [id]
     );
+
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Menu item not founda" });
+      return res.status(404).json({ success: false, error: "Chef not found" });
     }
-    res.json({ success: true, message: "Menu item została usunięta" });
+
+    console.log("[PUT] Sukces! Zapisano dane.");
+    res.json({ success: true, data: result.rows[0] });
+
   } catch (error) {
+    console.error("Critical Update Error:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// === ENDPOINTS FOR ChefY (CHEFS) ===
-
-// Get wszystkich Chefy
-app.get("/api/chefs", async (req, res) => {
-  try {
-    const result = await query("SELECT * FROM chef_item ORDER BY id");
-    res.json({ success: true, data: result.rows });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Utwórz nowego Chefa (requires token)
+// 3. CREATE NEW CHEF
 app.post("/api/chefs", authenticateToken, async (req, res) => {
   try {
     const {
-      name,
-      surname,
-      specialization,
-      facebook_link,
-      instagram_link,
-      twitter_link,
+      name, surname, specialization, facebook_link, instagram_link, twitter_link,
+      image_url, // To pole musi trafić do page_content!
+      position = 0, is_active = true
     } = req.body;
-    const result = await query(
-      "INSERT INTO chef_item (name, surname, specialization, facebook_link, instagram_link, twitter_link) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-      [
-        name,
-        surname,
-        specialization,
-        facebook_link,
-        instagram_link,
-        twitter_link,
-      ]
-    );
-    res.status(201).json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
-// Update Chefa (requires token)
-app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      name,
-      surname,
-      specialization,
-      facebook_link,
-      instagram_link,
-      twitter_link,
-    } = req.body;
-    const result = await query(
-      "UPDATE chef_item SET name = $1, surname = $2, specialization = $3, facebook_link = $4, instagram_link = $5, twitter_link = $6 WHERE id = $7 RETURNING *",
-      [
-        name,
-        surname,
-        specialization,
-        facebook_link,
-        instagram_link,
-        twitter_link,
-        id,
-      ]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: "Chef not foundy" });
+    // Walidacja
+    if (!name || !surname) {
+      return res.status(400).json({ success: false, error: "Imie i nazwisko są wymagane!" });
     }
-    res.json({ success: true, data: result.rows[0] });
+
+    // KROK 1: Wstawiamy dane do tabeli nadrzędnej (page_content)
+    // Tu zapisujemy image_url oraz item_type
+    const contentResult = await query(
+      `INSERT INTO page_content 
+       (item_type, image_url, position, is_active, creation_time) 
+       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) 
+       RETURNING id`,
+      ['Chef', image_url || '', position, is_active]
+    );
+
+    const newId = contentResult.rows[0].id; // Pobieramy wygenerowane ID
+
+    // KROK 2: Wstawiamy dane szczegółowe do tabeli podrzędnej (chef_item)
+    // Używamy tego samego ID (newId), co łączy obie tabele
+    const chefResult = await query(
+      `INSERT INTO chef_item 
+       (id, name, surname, specialization, facebook_link, instagram_link, twitter_link) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) 
+       RETURNING *`,
+      [newId, name, surname, specialization, facebook_link, instagram_link, twitter_link]
+    );
+
+    // KROK 3: Sklejamy wynik, żeby frontend dostał kompletny obiekt od razu
+    const fullData = {
+        ...chefResult.rows[0], // Dane kucharza
+        image_url: image_url,  // Dane z contentu
+        item_type: 'Chef',
+        is_active: is_active
+    };
+
+    res.status(201).json({ success: true, data: fullData });
+
   } catch (error) {
+    console.error("Błąd dodawania kucharza:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Usuń Chefa (requires token)
+// 4. DELETE CHEF
 app.delete("/api/chefs/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await query(
-      "DELETE FROM chef_item WHERE id = $1 RETURNING id",
-      [id]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: "Chef not foundy" });
-    }
-    res.json({ success: true, message: "Chef został usunięty" });
+    const result = await query("DELETE FROM chef_item WHERE id = $1 RETURNING id", [id]);
+    if (result.rows.length === 0) return res.status(404).json({ success: false, error: "Not found" });
+    res.json({ success: true, message: "Deleted" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -542,7 +804,7 @@ app.delete("/api/chefs/:id", authenticateToken, async (req, res) => {
 
 // === ENDPOINTS FOR NAWIGACJI ===
 
-// Get wszystkie elementy nawigacji
+//Get navigation
 app.get("/api/navigation", async (req, res) => {
   try {
     const result = await query(`
@@ -560,7 +822,7 @@ app.get("/api/navigation", async (req, res) => {
   }
 });
 
-// Utwórz nowy Navigation item (requires token)
+//Create new navigation item
 app.post("/api/navigation", authenticateToken, async (req, res) => {
   try {
     const {
@@ -627,7 +889,7 @@ app.put("/api/navigation/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// Usuń Navigation item (requires token)
+//Delete navigation item (requires token)
 app.delete("/api/navigation/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -847,7 +1109,7 @@ app.delete("/api/configuration/:key", authenticateToken, async (req, res) => {
 // Get wszystkie waluty
 app.get("/api/currencies", async (req, res) => {
   try {
-    const result = await query("SELECT * FROM currency ORDER BY code");
+    const result = await query("SELECT * FROM currency ORDER BY id");
     res.json({ success: true, data: result.rows });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -867,6 +1129,20 @@ app.post("/api/currencies", authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// 3. DELETE CURRENCY
+app.delete("/api/currencies/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Sprawdzamy czy waluta jest używana? Na razie zakładamy proste usunięcie.
+    // Jeśli jest używana w menu, baza wyrzuci błąd (foreign key), co jest dobrym zabezpieczeniem.
+    await query("DELETE FROM currency WHERE id = $1", [id]);
+    res.json({ success: true, message: "Waluta usunięta" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Nie można usunąć waluty (prawdopodobnie jest przypisana do dań)." });
+  }
+});
+
 // === ENDPOINTS FOR TYPÓW KONTAKTU ===
 
 // Get wszystkie typy kontaktu
@@ -1027,6 +1303,103 @@ app.delete("/api/contact-items/:id", authenticateToken, async (req, res) => {
     }
     res.json({ success: true, message: "Contact item został usunięty" });
   } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get("/api/page-items", async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT 
+        pi.*, 
+        pc.image_url, pc.is_active, pc.position, pc.creation_time
+      FROM page_item pi
+      JOIN page_content pc ON pi.id = pc.id
+      ORDER BY pc.position ASC, pc.creation_time DESC
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error("Błąd pobierania sekcji:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 2. CREATE NEW PAGE ITEM
+app.post("/api/page-items", authenticateToken, async (req, res) => {
+  try {
+    const { title, description, type, image_url, is_active = true, position = 0 } = req.body;
+
+    const contentResult = await query(
+      `INSERT INTO page_content (item_type, image_url, is_active, position, creation_time) 
+       VALUES ('Page_Item', $1, $2, $3, CURRENT_TIMESTAMP) 
+       RETURNING id`,
+      [image_url || '', is_active, position]
+    );
+    
+    const newId = contentResult.rows[0].id;
+    const itemResult = await query(
+      `INSERT INTO page_item (id, title, description, type) 
+       VALUES ($1, $2, $3, $4) 
+       RETURNING *`,
+      [newId, title, description, type]
+    );
+
+    res.status(201).json({ success: true, data: { ...itemResult.rows[0], image_url, is_active, position } });
+  } catch (error) {
+    console.error("Błąd tworzenia sekcji:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. UPDATE PAGE ITEM
+app.put("/api/page-items/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, type, image_url, is_active, position } = req.body;
+
+    await query(
+      "UPDATE page_content SET image_url = $1, is_active = $2, position = $3 WHERE id = $4", 
+      [
+        image_url, 
+        is_active, 
+        position !== undefined ? position : 0,
+        id
+      ]
+    );
+
+    const result = await query(
+      `UPDATE page_item SET title = $1, description = $2, type = $3 WHERE id = $4 RETURNING *`,
+      [title, description, type, id]
+    );
+
+    res.json({ 
+        success: true, 
+        data: { ...result.rows[0], image_url, is_active, position } 
+    });
+
+  } catch (error) {
+    console.error("Błąd edycji sekcji:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete("/api/page-items/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await query("DELETE FROM page_item WHERE id = $1", [id]);
+    const result = await query(
+      "DELETE FROM page_content WHERE id = $1 RETURNING id", 
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Nie znaleziono elementu" });
+    }
+
+    res.json({ success: true, message: "Sekcja usunięta pomyślnie" });
+
+  } catch (error) {
+    console.error("Błąd usuwania sekcji:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

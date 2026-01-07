@@ -1,256 +1,179 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
+import Loader from "../../components/Loader";
+import chefService from "../../services/chefService";
+import ChefModal from "../../components/pages/ChefModal"; // Import modala
+
+// Prosta ikona ołówka
+const PencilIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+  </svg>
+);
+
+// Prosta ikona kosza
+const TrashIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+  </svg>
+);
 
 interface Chef {
   id: number;
-  firstName: string;
-  lastName: string;
-  photoUrl: string;
+  name: string;
+  surname: string;
   specialization: string;
-  facebookUrl: string;
-  instagramUrl: string;
-  twitterUrl: string;
+  facebook_link: string;
+  instagram_link: string;
+  twitter_link: string;
+  image_url: string;
 }
 
-// 2. Dane przykładowe
-const initialChefs: Chef[] = [
-  {
-    id: 1,
-    firstName: "Gordon",
-    lastName: "Ramsey",
-    photoUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/6/6f/Gordon_Ramsay.jpg",
-    specialization: "Szef Kuchni / Kuchnia Międzynarodowa",
-    facebookUrl: "https://facebook.com",
-    instagramUrl: "https://instagram.com",
-    twitterUrl: "https://twitter.com",
-  },
-  {
-    id: 2,
-    firstName: "Magda",
-    lastName: "Gessler",
-    photoUrl:
-      "https://ocdn.eu/pulscms-transforms/1/Q79k9kpTURBXy9iMzQ3ZWQ0MGRiOGI4M2Y4NTlhNTI0MDcwNTBkODY2YS5qcGeSlQMAzQHuzRVwzQwRkwXNBLDNAqTeAAGhMAE",
-    specialization: "Kuchnia Polska / Desery",
-    facebookUrl: "",
-    instagramUrl: "",
-    twitterUrl: "",
-  },
-];
-
 export default function ChefPage() {
-  const [chefs, setChefs] = useState<Chef[]>(initialChefs);
+  const [chefs, setChefs] = useState<Chef[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Stan modala
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [chefToEdit, setChefToEdit] = useState<Chef | undefined>(undefined);
 
-  const [isEdit, setIsEdit] = useState(false);
-  const [editedChefs, setEditedChefs] = useState<Chef[]>([]);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const fetchChefs = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await chefService.getAll();
+      if (response.success) {
+        // Obsługa różnych formatów odpowiedzi API
+        const data = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+        setChefs(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  const toggleEditMode = () => {
-    setIsEdit(true);
-    setEditedChefs(JSON.parse(JSON.stringify(chefs))); // Głęboka kopia danych do edycji
-    setSaveSuccess(false);
+  useEffect(() => {
+    fetchChefs();
+  }, [fetchChefs]);
+
+  // Handlery
+  const handleCreate = () => {
+    setChefToEdit(undefined); // Tryb dodawania
+    setIsModalOpen(true);
   };
 
-  const exitEditMode = () => {
-    setIsEdit(false);
-    setEditedChefs([]);
-    setSaveSuccess(false);
+  const handleEdit = (chef: Chef) => {
+    setChefToEdit(chef); // Tryb edycji
+    setIsModalOpen(true);
   };
 
-  const handleChange = (index: number, key: keyof Chef, value: string) => {
-    setEditedChefs((prev) => {
-      const newData = [...prev];
-      newData[index] = { ...newData[index], [key]: value };
-      return newData;
-    });
+  const handleDelete = async (id: number) => {
+    if(!window.confirm("Are you sure you want to remove this chef?")) return;
+    
+    try {
+        // Zakładam, że masz metodę delete w chefService
+        await chefService.delete(id); 
+        fetchChefs();
+    } catch (error) {
+        console.error("Delete failed", error);
+        alert("Failed to delete chef");
+    }
   };
 
-  const saveHandler = () => {
-    setChefs(editedChefs);
-    setIsEdit(false);
-    setSaveSuccess(true);
-
-    setTimeout(() => setSaveSuccess(false), 3000);
-  };
-
-  const renderInput = (
-    label: string,
-    value: string,
-    index: number,
-    fieldKey: keyof Chef,
-    placeholder: string = ""
-  ) => (
-    <div className="mb-4">
-      <label className="mb-2.5 block font-medium text-black dark:text-white">
-        {label}
-      </label>
-      <input
-        type="text"
-        placeholder={placeholder}
-        value={value || ""}
-        disabled={!isEdit}
-        onChange={(e) => handleChange(index, fieldKey, e.target.value)}
-        className={`w-full rounded-lg border bg-transparent py-3 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:bg-form-input dark:text-white dark:focus:border-primary
-          ${
-            isEdit
-              ? "border-stroke dark:border-strokedark"
-              : "border-transparent px-0 pl-0 cursor-default"
-          }`}
-      />
-    </div>
-  );
+  if (isLoading && !chefs.length) return <Loader />;
 
   return (
     <>
-      <PageMeta
-        title="Zarządzanie Kucharzami | Panel Restauracji"
-        description="Edytuj dane zespołu kucharzy."
-      />
+      <PageMeta title="Chef Management" description="Manage your team" />
 
-      {saveSuccess && (
-        <div className="mb-4 p-4 text-sm text-green-600 bg-green-50 border border-green-200 rounded-xl dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-          Zapisano zmiany (lokalnie)!
-        </div>
-      )}
-
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 lg:p-6">
-        {/* NAGŁÓWEK SEKCJI */}
-        <div className="flex flex-row justify-between mb-6 items-center">
-          <h3 className="text-2xl font-semibold text-gray-800 dark:text-white/90">
-            Zespół (Chefs)
-          </h3>
-
-          <div className="flex gap-4">
-            {isEdit ? (
-              <>
-                <button
-                  onClick={exitEditMode}
-                  className="hover:opacity-70 transition-opacity border border-blue-500 rounded-lg px-6 py-2 text-blue-500 font-bold"
-                >
-                  Anuluj
-                </button>
-                <button
-                  onClick={saveHandler}
-                  className="hover:opacity-70 transition-opacity border border-green-500 rounded-lg px-6 py-2 text-green-500 font-bold"
-                >
-                  Zapisz
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={toggleEditMode}
-                className="hover:opacity-70 transition-opacity border border-blue-500 rounded-lg px-6 py-2 text-blue-500 font-bold"
-              >
-                Edytuj
-              </button>
-            )}
-          </div>
+      <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800">
+        <div className="flex justify-between items-center mb-8">
+          <h3 className="text-2xl font-bold text-gray-800 dark:text-white">Chef Team</h3>
+          <button 
+            onClick={handleCreate} 
+            className="px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition shadow-sm"
+          >
+            + Add New Chef
+          </button>
         </div>
 
-        {/* LISTA KUCHARZY */}
-        <div className="space-y-10">
-          {(isEdit ? editedChefs : chefs).map((chef, index) => (
-            <div
-              key={chef.id}
-              className="border-b border-stroke pb-8 last:border-0 dark:border-strokedark"
-            >
-              {/* TYTUŁ KARTY KUCHARZA */}
-              <div className="mb-6 flex items-center justify-between bg-gray-50 dark:bg-meta-4 p-3 rounded-lg">
-                <h4 className="text-lg font-bold text-black dark:text-white">
-                  Kucharz {index + 1}: {chef.firstName} {chef.lastName}
-                </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {chefs.map((chef) => (
+            <div key={chef.id} className="flex items-start gap-4 p-4 border border-gray-100 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-900 transition-colors">
+              
+              {/* ZDJĘCIE - NAPRAWIONE MIGOTANIE */}
+              <div className="flex-shrink-0">
+                {chef.image_url ? (
+                  <img 
+                    src={chef.image_url} 
+                    alt={chef.name} 
+                    className="w-16 h-16 rounded-full object-cover border-2 border-white dark:border-gray-600 shadow-sm"
+                  />
+                ) : (
+                  // Placeholder jeśli brak zdjęcia (nie miga, wygląda dobrze)
+                  <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {/* IMIĘ I NAZWISKO */}
-                {renderInput(
-                  "Imię",
-                  chef.firstName,
-                  index,
-                  "firstName",
-                  "Podaj imię"
-                )}
-                {renderInput(
-                  "Nazwisko",
-                  chef.lastName,
-                  index,
-                  "lastName",
-                  "Podaj nazwisko"
-                )}
-
-                {/* SPECJALIZACJA */}
-                <div className="md:col-span-2">
-                  {renderInput(
-                    "Specjalizacja",
-                    chef.specialization,
-                    index,
-                    "specialization",
-                    "np. Desery"
-                  )}
+              <div className="flex-grow min-w-0">
+                <h4 className="text-base font-semibold text-gray-900 dark:text-white truncate">
+                  {chef.name} {chef.surname}
+                </h4>
+                <p className="text-sm text-blue-600 dark:text-blue-400 mb-2 truncate">
+                  {chef.specialization || "No specialization"}
+                </p>
+                
+                {/* Social Icons (tylko jako kropki/wskaźniki że są) */}
+                <div className="flex gap-2 text-xs text-gray-400">
+                    {chef.facebook_link && <span title="Facebook">FB</span>}
+                    {chef.instagram_link && <span title="Instagram">IG</span>}
+                    {chef.twitter_link && <span title="Twitter">TW</span>}
                 </div>
+              </div>
 
-                {/* ZDJĘCIE URL + PODGLĄD */}
-                <div className="md:col-span-2">
-                  {renderInput(
-                    "Link do zdjęcia (URL)",
-                    chef.photoUrl,
-                    index,
-                    "photoUrl",
-                    "https://..."
-                  )}
-
-                  {/* Podgląd zdjęcia */}
-                  {chef.photoUrl && (
-                    <div className="mt-2 flex items-center gap-4">
-                      <img
-                        src={chef.photoUrl}
-                        alt="Podgląd"
-                        className="h-24 w-24 rounded-full object-cover border-2 border-stroke dark:border-strokedark"
-                        onError={(e) =>
-                          (e.currentTarget.style.display = "none")
-                        } // Ukryj jeśli link uszkodzony
-                      />
-                      <span className="text-sm text-gray-500">
-                        Podgląd zdjęcia profilowego
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* SOCIAL MEDIA - 3 KOLUMNY */}
-                <div className="md:col-span-2 mt-4">
-                  <h5 className="mb-4 border-b border-stroke pb-2 text-sm font-medium text-gray-500 dark:border-strokedark dark:text-gray-400">
-                    Media Społecznościowe
-                  </h5>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    {renderInput(
-                      "Facebook",
-                      chef.facebookUrl,
-                      index,
-                      "facebookUrl",
-                      "Link do FB"
-                    )}
-                    {renderInput(
-                      "Instagram",
-                      chef.instagramUrl,
-                      index,
-                      "instagramUrl",
-                      "Link do IG"
-                    )}
-                    {renderInput(
-                      "Twitter (X)",
-                      chef.twitterUrl,
-                      index,
-                      "twitterUrl",
-                      "Link do X"
-                    )}
-                  </div>
-                </div>
+              {/* Akcje */}
+              <div className="flex flex-col gap-2">
+                <button 
+                  onClick={() => handleEdit(chef)} 
+                  className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition"
+                  title="Edit"
+                >
+                  <PencilIcon />
+                </button>
+                <button 
+                   onClick={() => handleDelete(chef.id)}
+                   className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
+                   title="Delete"
+                >
+                  <TrashIcon />
+                </button>
               </div>
             </div>
           ))}
+
+          {chefs.length === 0 && (
+            <div className="col-span-full py-12 text-center text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+              <p>No chefs found.</p>
+              <button onClick={handleCreate} className="mt-2 text-blue-600 hover:underline">Add your first chef</button>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Renderujemy Modal warunkowo, żeby się resetował przy otwieraniu */}
+      {isModalOpen && (
+        <ChefModal
+            isOpen={isModalOpen}
+            closeModal={() => setIsModalOpen(false)}
+            onSuccess={fetchChefs}
+            chefToEdit={chefToEdit}
+        />
+      )}
     </>
   );
 }
