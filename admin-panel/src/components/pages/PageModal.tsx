@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Modal } from "../ui/modal";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
+import RichTextEditor from "../form/input/RichTextEditor";
 import Button from "../ui/button/Button";
 import ImageUpload from "../form/input/ImageUpload";
 import pageService from "../../services/pageService";
@@ -25,7 +26,7 @@ interface PageModalProps {
   isOpen: boolean;
   closeModal: () => void;
   onSuccess: () => void;
-  pageToEdit?: any; // Obiekt strony z listy (ma title, slug, id)
+  pageToEdit?: any;
 }
 
 export default function PageModal({
@@ -35,35 +36,29 @@ export default function PageModal({
   pageToEdit,
 }: PageModalProps) {
   
-  // 1. ZMIANA: Inicjalizujemy stan OD RAZU danymi z propsa (jeśli istnieją).
-  // Dzięki temu modal od razu wie, czy edytuje, bez czekania na useEffect.
   const [formData, setFormData] = useState<PageFormData>({
-    id: pageToEdit?.id, // Jeśli edytujemy, ID jest ustawione natychmiast
+    id: pageToEdit?.id,
     title: pageToEdit?.title || "",
     slug: pageToEdit?.slug || "",
-    description: "", // To dociągniemy z bazy
-    header_image_url: "", // To dociągniemy z bazy
-    contents: [], // To dociągniemy z bazy
+    description: "",
+    header_image_url: "",
+    contents: [],
   });
 
   const [availableContent, setAvailableContent] = useState<PageContentItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 2. ZMIANA: useEffect uruchamia się raz przy montowaniu modala (dzięki []).
   useEffect(() => {
     const init = async () => {
-      // Zawsze pobierz listę dostępnych opcji (Kucharze, Menu)
       await loadContentOptions();
-
-      // Jeśli jesteśmy w trybie edycji, pobierz pełne szczegóły (opis, zdjęcie, zaznaczone checkboxy)
       if (pageToEdit?.id) {
         await fetchPageDetails(pageToEdit.id);
       }
     };
 
     init();
-  }, []); // Pusta tablica zależności - wykonaj tylko raz po otwarciu
+  }, []);
 
   const loadContentOptions = async () => {
     try {
@@ -91,8 +86,6 @@ export default function PageModal({
           description: res.data.description || "",
           slug: res.data.slug,
           
-          // UPEWNIJ SIĘ, ŻE TA LINIJKA JEST DOKŁADNIE TAKA:
-          // Jeśli pole jest nullem, wstaw pusty string "", inaczej ImageUpload zgłupieje
           header_image_url: res.data.header_image_url || "", 
           
           contents: res.data.contents ? res.data.contents.map((c: any) => c.id) : [],
@@ -184,12 +177,14 @@ export default function PageModal({
 
         <div>
           <Label>Description</Label>
-          <textarea
-            className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition"
-            rows={3}
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          />
+          <div className="mt-1">
+            <RichTextEditor
+                value={formData.description}
+                // RichTextEditor zwraca string (HTML), nie event, więc przypisujemy bezpośrednio
+                onChange={(value) => setFormData({ ...formData, description: value })}
+                placeholder="Enter page description..."
+            />
+          </div>
         </div>
 
         <div className="mb-4">
