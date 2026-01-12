@@ -6,7 +6,7 @@ import Home from "./pages/Dashboard/Home";
 import UserProfiles from "./pages/Admins/UserProfiles";
 import AppLayout from "./layout/AppLayout";
 import ChefPage from "./pages/Dashboard/ChefPage";
-import ContactPage from "./pages/Dashboard/ContactPage";
+import ContactPage from "./pages/Contact/Items/index";
 import Configuration from "./pages/Configuration/index";
 import PagesPage from "./pages/Dashboard/PagesPage";
 import MenuPage from "./pages/Dashboard/MenuPage";

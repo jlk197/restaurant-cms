@@ -17,7 +17,11 @@ export default function PageItemPage() {
   const fetchItems = useCallback(async () => {
     setIsLoading(true);
     const res = await pageItemService.getAll();
-    if (res.success) setItems(res.data);
+    if (res.success) {
+        // Sortowanie po pozycji
+        const sorted = res.data.sort((a: any, b: any) => (a.position || 0) - (b.position || 0));
+        setItems(sorted);
+    }
     setIsLoading(false);
   }, []);
 
@@ -44,7 +48,7 @@ export default function PageItemPage() {
       <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-2xl font-bold text-gray-800 dark:text-white">All items</h3>
-          <button onClick={() => { setItemToEdit(undefined); setIsModalOpen(true); }} className="px-5 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700">
+          <button onClick={() => { setItemToEdit(undefined); setIsModalOpen(true); }} className="px-5 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 shadow-sm">
             + Add Item
           </button>
         </div>
@@ -52,17 +56,21 @@ export default function PageItemPage() {
         {isLoading ? <Loader /> : (
             <div className="space-y-4">
             {items.map(item => (
-                <div key={item.id} className="flex flex-col md:flex-row border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-800/50 hover:shadow-md transition">
-                    {/* Lewa strona: Zdjęcie (jeśli jest) */}
+                <div key={item.id} className="relative flex flex-col md:flex-row border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-800/50 hover:shadow-md transition">
+                    
+                    {/* POSITION BADGE */}
+                    <div className="absolute top-2 left-2 z-10 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
+                        #{item.position || 0}
+                    </div>
+
+                    {/* Lewa strona: Zdjęcie */}
                     <div className="w-full md:w-48 h-32 md:h-auto bg-gray-200 flex-shrink-0 relative">
                         {item.image_url ? (
                             <img src={item.image_url} alt="" className="w-full h-full object-cover" />
                         ) : (
                             <div className="flex items-center justify-center h-full text-xs text-gray-400">No IMG</div>
                         )}
-                        {!item.is_active && (
-                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-xs uppercase tracking-widest">Ukryty</div>
-                        )}
+                        {/* USUNIĘTO: Overlay "Ukryty" */}
                     </div>
 
                     {/* Prawa strona: Treść */}
@@ -70,16 +78,27 @@ export default function PageItemPage() {
                         <div>
                             <div className="flex justify-between items-start">
                                 <h4 className="font-bold text-lg dark:text-white">{item.title}</h4>
-                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${getTypeBadgeColor(item.type)}`}>
-                                    {item.type}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    {/* STATUS INDICATOR */}
+                                    <div className="flex items-center">
+                                        <span className={`inline-block w-2.5 h-2.5 rounded-full mr-1.5 ${item.is_active ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                            {item.is_active ? 'Active' : 'Hidden'}
+                                        </span>
+                                    </div>
+
+                                    {/* TYPE BADGE */}
+                                    <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${getTypeBadgeColor(item.type)}`}>
+                                        {item.type}
+                                    </span>
+                                </div>
                             </div>
                             <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 line-clamp-2">
                                 {item.description}
                             </p>
                         </div>
                         
-                        <div className="flex justify-end gap-3 mt-4">
+                        <div className="flex justify-end gap-3 mt-4 border-t pt-3 dark:border-gray-700">
                             <button onClick={() => { setItemToEdit(item); setIsModalOpen(true); }} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm font-medium">
                                 <EditIcon /> Edit
                             </button>

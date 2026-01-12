@@ -24,4 +24,5 @@ export interface MenuItemFormData {
   image_url: string;
   currency_id?: number;
   is_active?: boolean;
+  position?: number;
 }

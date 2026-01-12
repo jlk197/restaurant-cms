@@ -18,9 +18,10 @@ export default function PageItemModal({ isOpen, closeModal, onSuccess, itemToEdi
   const [formData, setFormData] = useState<PageItemFormData>({
     title: "",
     description: "",
-    type: "text", // Domyślny typ
+    type: "text", // Default type
     image_url: "",
-    is_active: true
+    is_active: true,
+    position: 0 // New field
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -34,10 +35,18 @@ export default function PageItemModal({ isOpen, closeModal, onSuccess, itemToEdi
             description: itemToEdit.description || "",
             type: itemToEdit.type || "text",
             image_url: itemToEdit.image_url || "",
-            is_active: itemToEdit.is_active ?? true
+            is_active: itemToEdit.is_active !== undefined ? itemToEdit.is_active : true,
+            position: itemToEdit.position !== undefined ? itemToEdit.position : 0,
         });
       } else {
-        setFormData({ title: "", description: "", type: "text", image_url: "", is_active: true });
+        setFormData({ 
+            title: "", 
+            description: "", 
+            type: "text", 
+            image_url: "", 
+            is_active: true, 
+            position: 0 
+        });
       }
       setError("");
     }
@@ -95,17 +104,31 @@ export default function PageItemModal({ isOpen, closeModal, onSuccess, itemToEdi
                     <option value="promo">Special offer</option>
                 </select>
             </div>
-            <div className="flex items-center pt-6">
-                 <label className="flex items-center cursor-pointer">
-                    <input 
-                        type="checkbox" 
-                        checked={formData.is_active}
-                        onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
-                        className="mr-2 w-5 h-5"
-                    />
-                    <span className="dark:text-white">IsActive</span>
-                 </label>
+             {/* POSITION INPUT */}
+             <div>
+                <Label>Position (Order)</Label>
+                <Input 
+                    type="number"
+                    value={formData.position}
+                    onChange={(e) => setFormData({...formData, position: Number(e.target.value)})}
+                    placeholder="0"
+                />
             </div>
+        </div>
+
+        {/* STATUS TOGGLE */}
+        <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
+             <label className="flex items-center cursor-pointer">
+                <input 
+                    type="checkbox" 
+                    checked={formData.is_active}
+                    onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                    className="mr-3 w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
+                />
+                <span className="font-medium text-gray-700 dark:text-gray-200">
+                    {formData.is_active ? "Active (Visible)" : "Hidden"}
+                </span>
+             </label>
         </div>
 
         <div>
@@ -122,6 +145,7 @@ export default function PageItemModal({ isOpen, closeModal, onSuccess, itemToEdi
              <Label>Image</Label>
              <div className="mt-1">
                 <ImageUpload 
+                    key={formData.image_url || 'new'}
                     currentImage={formData.image_url}
                     onImageUploaded={(url) => setFormData(prev => ({...prev, image_url: url}))}
                 />
@@ -130,7 +154,7 @@ export default function PageItemModal({ isOpen, closeModal, onSuccess, itemToEdi
 
         <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
           <Button variant="outline" onClick={closeModal} type="button">Cancel</Button>
-          <button type="submit" disabled={isLoading} className="px-6 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+          <button type="submit" disabled={isLoading} className="px-6 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50">
             {isLoading ? "Saving..." : "Save"}
           </button>
         </div>

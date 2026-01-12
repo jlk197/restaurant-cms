@@ -582,32 +582,28 @@ app.post("/api/menu-items", authenticateToken, async (req, res) => {
   try {
     const { 
         name, description, price, currency_id, 
-        image_url, is_active = true // Te pola idą do page_content
+        image_url, position, is_active = true
     } = req.body;
 
-    // KROK A: Wstawiamy do tabeli-matki (Page Content)
-    // To nam wygeneruje unikalne ID
     const contentResult = await query(
-      `INSERT INTO page_content (item_type, image_url, is_active, creation_time) 
-       VALUES ('Menu_Item', $1, $2, CURRENT_TIMESTAMP) 
+      `INSERT INTO page_content (item_type, image_url, is_active, position, creation_time) 
+       VALUES ('Menu_Item', $1, $2, $3, CURRENT_TIMESTAMP) 
        RETURNING id`,
-      [image_url || '', is_active]
+      [image_url || '', is_active, position || 0]
     );
     
     const newId = contentResult.rows[0].id;
 
-    // KROK B: Wstawiamy do tabeli-dziecka (Menu Item) używając TEGO SAMEGO ID
     const menuResult = await query(
       `INSERT INTO menu_item (id, name, description, price, currency_id) 
        VALUES ($1, $2, $3, $4, $5) 
        RETURNING *`,
-      [newId, name, description, price, currency_id || 1] // Domyślnie waluta ID 1 (PLN)
+      [newId, name, description, price, currency_id || 1]
     );
 
-    // Zwracamy połączone dane
     res.status(201).json({ 
         success: true, 
-        data: { ...menuResult.rows[0], image_url, is_active } 
+        data: { ...menuResult.rows[0], image_url, is_active, position: position || 0 } 
     });
 
   } catch (error) {
@@ -616,16 +612,27 @@ app.post("/api/menu-items", authenticateToken, async (req, res) => {
   }
 });
 
-// 3. UPDATE MENU ITEM (Musi aktualizować obie tabele)
 app.put("/api/menu-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, price, currency_id, image_url } = req.body;
+  
+    const { 
+      name, description, price, currency_id, 
+      image_url, position, is_active        
+    } = req.body;
 
-    // Aktualizacja tabeli-matki (jeśli zmieniło się zdjęcie)
-    await query("UPDATE page_content SET image_url = $1 WHERE id = $2", [image_url, id]);
+    await query(
+      `UPDATE page_content 
+       SET image_url = $1, is_active = $2, position = $3, last_modification_time = CURRENT_TIMESTAMP 
+       WHERE id = $4`,
+      [
+        image_url, 
+        is_active,
+        position || 0,  
+        id
+      ]
+    );
 
-    // Aktualizacja tabeli-dziecka (dane tekstowe)
     const result = await query(
       `UPDATE menu_item 
        SET name = $1, description = $2, price = $3, currency_id = $4 
@@ -638,8 +645,18 @@ app.put("/api/menu-items/:id", authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, error: "Menu item not found" });
     }
 
-    res.json({ success: true, data: result.rows[0] });
+    res.json({ 
+        success: true, 
+        data: { 
+            ...result.rows[0], 
+            image_url, 
+            position, 
+            is_active 
+        } 
+    });
+
   } catch (error) {
+    console.error("Błąd aktualizacji dania:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -669,13 +686,14 @@ app.delete("/api/menu-items/:id", authenticateToken, async (req, res) => {
 // === ENDPOINTS FOR ChefY (CHEFS) ===
 console.log("--> REJESTRACJA ENDPOINTÓW CHEFS...");
 
+// Get wszystkich Chefy + pola z page_content
 app.get("/api/chefs", async (req, res) => {
   try {
     const result = await query(`
-      SELECT c.*, p.image_url 
+      SELECT c.*, p.image_url, p.position, p.is_active
       FROM chef_item c
       LEFT JOIN page_content p ON c.id = p.id
-      ORDER BY c.id
+      ORDER BY p.position ASC, c.id ASC
     `);
     res.json({ success: true, data: result.rows });
   } catch (error) {
@@ -683,24 +701,75 @@ app.get("/api/chefs", async (req, res) => {
   }
 });
 
+// Create new Chef
+app.post("/api/chefs", authenticateToken, async (req, res) => {
+  try {
+    const {
+      name, surname, specialization, facebook_link, instagram_link, twitter_link,
+      image_url, 
+      position = 0, // Domyślnie 0
+      is_active = true // Domyślnie true
+    } = req.body;
 
+    if (!name || !surname) {
+      return res.status(400).json({ success: false, error: "Imie i nazwisko są wymagane!" });
+    }
+
+    // KROK 1: Wstawiamy dane do tabeli page_content (parent)
+    const contentResult = await query(
+      `INSERT INTO page_content 
+        (item_type, image_url, position, is_active, creation_time) 
+        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) 
+        RETURNING id`,
+      [
+          'Chef', 
+          image_url || '', 
+          position, 
+          is_active
+      ]
+    );
+
+    const newId = contentResult.rows[0].id;
+
+    // KROK 2: Wstawiamy dane do tabeli chef_item (child)
+    const chefResult = await query(
+      `INSERT INTO chef_item 
+        (id, name, surname, specialization, facebook_link, instagram_link, twitter_link) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7) 
+        RETURNING *`,
+      [newId, name, surname, specialization, facebook_link, instagram_link, twitter_link]
+    );
+
+    // KROK 3: Response
+    const fullData = {
+        ...chefResult.rows[0],
+        image_url,
+        position,
+        is_active,
+        item_type: 'Chef'
+    };
+
+    res.status(201).json({ success: true, data: fullData });
+
+  } catch (error) {
+    console.error("Błąd dodawania kucharza:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update Chef
 app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
-  console.log(`[PUT] Aktualizacja Chefa ID: ${id}`);
 
   try {
     const {
-      name,
-      surname,
-      specialization,
-      facebook_link,
-      instagram_link,
-      twitter_link,
-      image_url 
+      name, surname, specialization, facebook_link, instagram_link, twitter_link,
+      image_url, position, is_active
     } = req.body;
 
     const safeImageUrl = image_url || ""; 
 
+    // 1. Aktualizacja child (chef_item)
     await query(
       `UPDATE chef_item SET 
         name = $1, surname = $2, specialization = $3, 
@@ -709,16 +778,20 @@ app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
       [name, surname, specialization, facebook_link, instagram_link, twitter_link, id]
     );
 
+    // 2. Aktualizacja parent (page_content) - w tym position i is_active
     await query(
       `UPDATE page_content SET 
         image_url = $1,
+        position = $2,
+        is_active = $3,
         last_modification_time = CURRENT_TIMESTAMP
-      WHERE id = $2`,
-      [safeImageUrl, id]
+      WHERE id = $4`,
+      [safeImageUrl, position || 0, is_active, id]
     );
 
+    // 3. Return full updated object
     const result = await query(
-      `SELECT c.*, p.image_url 
+      `SELECT c.*, p.image_url, p.position, p.is_active
        FROM chef_item c
        JOIN page_content p ON c.id = p.id
        WHERE c.id = $1`,
@@ -729,63 +802,10 @@ app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, error: "Chef not found" });
     }
 
-    console.log("[PUT] Sukces! Zapisano dane.");
     res.json({ success: true, data: result.rows[0] });
 
   } catch (error) {
-    console.error("Critical Update Error:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// 3. CREATE NEW CHEF
-app.post("/api/chefs", authenticateToken, async (req, res) => {
-  try {
-    const {
-      name, surname, specialization, facebook_link, instagram_link, twitter_link,
-      image_url, // To pole musi trafić do page_content!
-      position = 0, is_active = true
-    } = req.body;
-
-    // Walidacja
-    if (!name || !surname) {
-      return res.status(400).json({ success: false, error: "Imie i nazwisko są wymagane!" });
-    }
-
-    // KROK 1: Wstawiamy dane do tabeli nadrzędnej (page_content)
-    // Tu zapisujemy image_url oraz item_type
-    const contentResult = await query(
-      `INSERT INTO page_content 
-       (item_type, image_url, position, is_active, creation_time) 
-       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) 
-       RETURNING id`,
-      ['Chef', image_url || '', position, is_active]
-    );
-
-    const newId = contentResult.rows[0].id; // Pobieramy wygenerowane ID
-
-    // KROK 2: Wstawiamy dane szczegółowe do tabeli podrzędnej (chef_item)
-    // Używamy tego samego ID (newId), co łączy obie tabele
-    const chefResult = await query(
-      `INSERT INTO chef_item 
-       (id, name, surname, specialization, facebook_link, instagram_link, twitter_link) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) 
-       RETURNING *`,
-      [newId, name, surname, specialization, facebook_link, instagram_link, twitter_link]
-    );
-
-    // KROK 3: Sklejamy wynik, żeby frontend dostał kompletny obiekt od razu
-    const fullData = {
-        ...chefResult.rows[0], // Dane kucharza
-        image_url: image_url,  // Dane z contentu
-        item_type: 'Chef',
-        is_active: is_active
-    };
-
-    res.status(201).json({ success: true, data: fullData });
-
-  } catch (error) {
-    console.error("Błąd dodawania kucharza:", error);
+    console.error("Update Error:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

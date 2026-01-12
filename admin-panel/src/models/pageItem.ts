@@ -16,5 +16,6 @@ export interface PageItemFormData {
   description: string;
   type: string;
   image_url: string;
+  position?: number;
   is_active: boolean;
 }

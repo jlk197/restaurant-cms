@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Modal } from "../ui/modal"; // Upewnij się, że ścieżka jest poprawna
+import { Modal } from "../ui/modal";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
@@ -15,13 +15,15 @@ interface Chef {
   instagram_link: string;
   twitter_link: string;
   image_url: string;
+  position: number;    // New field
+  is_active: boolean;  // New field
 }
 
 interface ChefModalProps {
   isOpen: boolean;
   closeModal: () => void;
   onSuccess: () => void;
-  chefToEdit?: Chef; // Jeśli podane = edycja, jeśli undefined = dodawanie
+  chefToEdit?: Chef;
 }
 
 export default function ChefModal({
@@ -38,12 +40,13 @@ export default function ChefModal({
     instagram_link: "",
     twitter_link: "",
     image_url: "",
+    position: 0,      // Default 0
+    is_active: true,  // Default true
   });
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Inicjalizacja formularza przy otwarciu
   useEffect(() => {
     if (isOpen) {
       if (chefToEdit) {
@@ -56,9 +59,11 @@ export default function ChefModal({
             instagram_link: chefToEdit.instagram_link || "",
             twitter_link: chefToEdit.twitter_link || "",
             image_url: chefToEdit.image_url || "",
+            position: chefToEdit.position !== undefined ? chefToEdit.position : 0,
+            is_active: chefToEdit.is_active !== undefined ? chefToEdit.is_active : true,
         });
       } else {
-        // Reset formularza dla nowego kucharza
+        // Reset form
         setFormData({
           name: "",
           surname: "",
@@ -67,6 +72,8 @@ export default function ChefModal({
           instagram_link: "",
           twitter_link: "",
           image_url: "",
+          position: 0,
+          is_active: true,
         });
       }
       setError("");
@@ -75,33 +82,16 @@ export default function ChefModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // --- DIAGNOSTYKA START ---
-    console.log("1. Kliknięto przycisk Zapisz!");
-    console.log("2. Aktualne dane w formularzu:", formData);
-    console.log("3. Czy istnieje chefService.create?", !!chefService.create);
-    // -------------------------
-
     setIsLoading(true);
     setError("");
 
     try {
       let response;
       if (formData.id) {
-        console.log("4. Wykryto ID - uruchamiam UPDATE");
         response = await chefService.updateSingle(formData.id, formData);
       } else {
-        console.log("4. Brak ID - uruchamiam CREATE");
-        
-        // To jest newralgiczny moment. Jeśli tu jest błąd, kod przerwie działanie.
-        if (!chefService.create) {
-            throw new Error("BŁĄD KRYTYCZNY: Brakuje metody create w chefService!");
-        }
-        
         response = await chefService.create(formData);
       }
-
-      console.log("5. Odpowiedź z serwera:", response);
 
       if (response.success) {
         onSuccess();
@@ -110,7 +100,7 @@ export default function ChefModal({
         setError(response.error || "Operation failed");
       }
     } catch (err: any) {
-      console.error("!!! BŁĄD W HANDLERZE !!!", err); // To pokaże prawdziwą przyczynę
+      console.error(err);
       setError(err.message || "An error occurred");
     } finally {
       setIsLoading(false);
@@ -161,11 +151,37 @@ export default function ChefModal({
           />
         </div>
 
+        {/* Position & Status Row */}
+        <div className="grid grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
+            <div>
+                <Label>Position (Order)</Label>
+                <Input
+                    type="number"
+                    value={formData.position}
+                    onChange={(e) => setFormData({ ...formData, position: Number(e.target.value) })}
+                    placeholder="0"
+                />
+            </div>
+            <div className="flex flex-col justify-center">
+                <Label>Status</Label>
+                <label className="flex items-center cursor-pointer mt-2">
+                    <input 
+                        type="checkbox" 
+                        className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                        checked={formData.is_active}
+                        onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                    />
+                    <span className="ml-3 font-medium text-gray-700 dark:text-gray-200">
+                        {formData.is_active ? "Active (Visible)" : "Hidden"}
+                    </span>
+                </label>
+            </div>
+        </div>
+
         <div className="mb-4">
             <Label>Profile Photo</Label>
             <div className="mt-1">
                 <ImageUpload
-                    // Klucz 'key' wymusza odświeżenie komponentu przy zmianie URL
                     key={formData.image_url || "new"}
                     currentImage={formData.image_url}
                     onImageUploaded={(url) => setFormData(prev => ({ ...prev, image_url: url }))}
