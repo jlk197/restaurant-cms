@@ -12,11 +12,36 @@ const API_CONFIG = {
       UPDATE: "/api/configuration",
       UPDATE_SINGLE: "/api/configuration/",
     },
-    CHEFS: {
-      GET: "/api/chefs",
-      UPDATE: "/api/chefs",
-      UPDATE_SINGLE: "/api/chefs/",
-    }
+    CONTACT_TYPES: {
+      GET: "/api/contact-types",
+      ADD: "/api/contact-types",
+      UPDATE: "/api/contact-types/",
+      DELETE: "/api/contact-types/",
+    },
+    CONTACT_ITEMS: {
+      GET: "/api/contact-items",
+      ADD: "/api/contact-items",
+      UPDATE: "/api/contact-items/",
+      DELETE: "/api/contact-items/",
+    },
+    SLIDER_IMAGES: {
+      GET: "/api/slider-images",
+      ADD: "/api/slider-images",
+      UPDATE: "/api/slider-images/",
+      DELETE: "/api/slider-images/",
+    },
+    NAVIGATION: {
+      GET: "/api/navigation",
+      ADD: "/api/navigation",
+      UPDATE: "/api/navigation/",
+      DELETE: "/api/navigation/",
+    },
+    PAGES: {
+      GET: "/api/pages",
+      ADD: "/api/pages",
+      UPDATE: "/api/pages/",
+      DELETE: "/api/pages/",
+    },
   },
 };
 
