@@ -5,6 +5,8 @@ import Button from "../ui/button/Button";
 import { Modal } from "../ui/modal";
 import { ContactType } from "../../models/contact_type";
 import contactTypeService from "../../services/contactTypeService";
+import ImageUpload from "../form/input/ImageUpload";
+import administratorService from "../../services/administratorService";
 
 interface ContactTypeModalProps {
   editedType?: ContactType;
@@ -20,19 +22,47 @@ export default function ContactTypeAddModal({
   onSuccess,
 }: ContactTypeModalProps) {
   const [formData, setFormData] = useState<ContactType>(editedType);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [showError, setShowError] = useState(false);
 
   useEffect(() => {
     setFormData(editedType);
   }, [editedType]);
 
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const response = await administratorService.getLoggedInUser();
+      if (response.success && response.data) {
+        setCurrentUserId(response.data.id);
+      }
+    };
+    if (isOpen) {
+      fetchCurrentUser();
+    }
+  }, [isOpen]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData?.icon_url) {
+      setShowError(true);
+      return;
+    }
+
+    setShowError(false);
     const response = editedType
-      ? await contactTypeService.update(formData)
-      : await contactTypeService.add(formData);
+      ? await contactTypeService.update({
+          ...formData,
+          last_modificator_id: currentUserId,
+        })
+      : await contactTypeService.add({
+          ...formData,
+          creator_id: currentUserId,
+        });
     if (response.success) {
       closeModal();
       setFormData(null);
+      setShowError(false);
       onSuccess?.();
     }
   };
@@ -54,6 +84,26 @@ export default function ContactTypeAddModal({
             }
             required
           />
+        </div>
+        <div>
+          <Label>
+            Icon 
+          </Label>
+          <div className="mt-1">
+            <ImageUpload
+              key={formData?.icon_url || "new"}
+              currentImage={formData?.icon_url}
+              onImageUploaded={(url) => {
+                setFormData({ ...formData, icon_url: url });
+                setShowError(false);
+              }}
+            />
+          </div>
+          {showError && (
+            <p className="text-xs text-red-500 mt-1">
+              Please upload an icon
+            </p>
+          )}
         </div>
         <div className="flex gap-3 pt-4">
           <Button variant="outline" onClick={closeModal}>

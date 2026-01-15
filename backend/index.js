@@ -3,6 +3,8 @@ const cors = require("cors");
 const bcrypt = require("bcrypt");
 const multer = require("multer");
 const path = require("path");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 const { query, testConnection } = require("./db");
 const { authenticateToken, generateToken } = require("./authMiddleware");
 const app = express();
@@ -223,6 +225,23 @@ app.put(
   }
 );
 
+// Configure email transporter
+console.log("📧 Email configuration:");
+console.log("  SMTP_HOST:", process.env.SMTP_HOST);
+console.log("  SMTP_PORT:", process.env.SMTP_PORT);
+console.log("  SMTP_USER:", process.env.SMTP_USER);
+console.log("  SMTP_PASS:", process.env.SMTP_PASS ? "***SET***" : "NOT SET");
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: process.env.SMTP_PORT || 587,
+  secure: false, // true for 465, false for other ports
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
 // Administrator login
 app.post("/api/administrators/login", async (req, res) => {
   try {
@@ -264,6 +283,134 @@ app.post("/api/administrators/login", async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Forgot password - send reset email
+app.post("/api/administrators/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ success: false, error: "Email is required" });
+    }
+
+    // Check if administrator exists
+    const adminResult = await query(
+      "SELECT id, name, email FROM administrator WHERE email = $1 AND is_active = true",
+      [email]
+    );
+
+    // Always return success to prevent email enumeration
+    if (adminResult.rows.length === 0) {
+      return res.json({
+        success: true,
+        message: "If an account with that email exists, a password reset link has been sent.",
+      });
+    }
+
+    const admin = adminResult.rows[0];
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 3600000); // 1 hour from now
+
+    // Store token in database
+    await query(
+      "INSERT INTO password_reset_token (administrator_id, email, token, expires_at) VALUES ($1, $2, $3, $4)",
+      [admin.id, email, resetToken, expiresAt]
+    );
+
+    // Create reset URL
+    const resetUrl = `${process.env.ADMIN_PANEL_URL || "http://localhost:3001"}/admin/reset-password?token=${resetToken}`;
+
+    console.log("📧 Attempting to send password reset email...");
+    console.log("  To:", email);
+    console.log("  Reset URL:", resetUrl);
+
+    // Send email
+    try {
+      const info = await transporter.sendMail({
+        from: process.env.SMTP_FROM || '"Restaurant CMS" <noreply@restaurant-cms.local>',
+        to: email,
+        subject: "Password Reset Request",
+        html: `
+          <h2>Password Reset Request</h2>
+          <p>Hello ${admin.name},</p>
+          <p>You requested to reset your password. Click the link below to reset it:</p>
+          <p><a href="${resetUrl}">Reset Password</a></p>
+          <p>This link will expire in 1 hour.</p>
+          <p>If you didn't request this, please ignore this email.</p>
+          <br>
+          <p>Best regards,<br>Restaurant CMS Team</p>
+        `,
+      });
+      console.log("✅ Email sent successfully!");
+      console.log("  Message ID:", info.messageId);
+      console.log("  Preview URL:", nodemailer.getTestMessageUrl(info));
+    } catch (emailError) {
+      console.error("❌ Email sending failed:", emailError);
+      // Don't expose email errors to user
+    }
+
+    res.json({
+      success: true,
+      message: "If an account with that email exists, a password reset link has been sent.",
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ success: false, error: "An error occurred. Please try again later." });
+  }
+});
+
+// Reset password with token
+app.post("/api/administrators/reset-password", async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ success: false, error: "Token and new password are required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, error: "Password must be at least 6 characters long" });
+    }
+
+    // Find valid token
+    const tokenResult = await query(
+      "SELECT * FROM password_reset_token WHERE token = $1 AND used = false AND expires_at > NOW()",
+      [token]
+    );
+
+    if (tokenResult.rows.length === 0) {
+      return res.status(400).json({ success: false, error: "Invalid or expired reset token" });
+    }
+
+    const resetToken = tokenResult.rows[0];
+
+    // Hash new password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update administrator password
+    await query(
+      "UPDATE administrator SET password = $1 WHERE id = $2",
+      [hashedPassword, resetToken.administrator_id]
+    );
+
+    // Mark token as used
+    await query(
+      "UPDATE password_reset_token SET used = true WHERE id = $1",
+      [resetToken.id]
+    );
+
+    res.json({
+      success: true,
+      message: "Password has been reset successfully. You can now log in with your new password.",
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ success: false, error: "An error occurred. Please try again later." });
   }
 });
 
@@ -1186,10 +1333,10 @@ app.get("/api/contact-types", async (req, res) => {
 // Utwórz nowy typ kontaktu
 app.post("/api/contact-types", authenticateToken, async (req, res) => {
   try {
-    const { value, creator_id } = req.body;
+    const { value, icon_url, creator_id } = req.body;
     const result = await query(
-      "INSERT INTO contact_type (value, creator_id) VALUES ($1, $2) RETURNING *",
-      [value, creator_id]
+      "INSERT INTO contact_type (value, icon_url, creator_id) VALUES ($1, $2, $3) RETURNING *",
+      [value, icon_url, creator_id]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -1222,17 +1369,18 @@ app.delete("/api/contact-types/:id", authenticateToken, async (req, res) => {
 app.put("/api/contact-types/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { value, last_modificator_id } = req.body;
+    const { value, icon_url, last_modificator_id } = req.body;
 
     // Aktualizacja rekordu
     const result = await query(
       `UPDATE contact_type
        SET value = $1,
-           last_modificator_id = $2,
+           icon_url = $2,
+           last_modificator_id = $3,
            last_modification_time = NOW()
-       WHERE id = $3
+       WHERE id = $4
        RETURNING *`,
-      [value, last_modificator_id, id]
+      [value, icon_url, last_modificator_id, id]
     );
 
     if (result.rows.length === 0) {
@@ -1255,6 +1403,7 @@ app.get("/api/contact-items", async (req, res) => {
     const result = await query(`
       SELECT ci.*,
         ct.value as contact_type_value,
+        ct.icon_url as contact_type_icon_url,
         a1.name || ' ' || a1.surname as creator_name,
         a2.name || ' ' || a2.surname as modificator_name
       FROM contact_item ci

@@ -41,7 +41,7 @@ export default function ConfigForm({
               />
             ) : (
               <div
-                className="prose dark:prose-invert max-w-none"
+                className="quill-content prose dark:prose-invert max-w-none"
                 dangerouslySetInnerHTML={{ __html: config.value }}
               />
             )

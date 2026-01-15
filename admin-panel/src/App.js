@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
 import SignIn from "./pages/Login/SignIn";
+import ResetPassword from "./pages/Login/ResetPassword";
 import Home from "./pages/Dashboard/Home";
 import UserProfiles from "./pages/Admins/UserProfiles";
 import AppLayout from "./layout/AppLayout";
@@ -12,7 +13,7 @@ import PagesPage from "./pages/Dashboard/PagesPage";
 import MenuPage from "./pages/Dashboard/MenuPage";
 import PageItemPage from "./pages/Dashboard/PageItemPage";
 import ContentPage from "./pages/Dashboard/ContentPage";
-import SliderImages from "./pages/SliderImages/index"; 
+import SliderImages from "./pages/SliderImages/index";
 import ContactTypesPage from "./pages/Contact/Types/index";
 import ContactItemsPage from "./pages/Contact/Items/index";
 import Navigation from "./pages/Navigation/index";
@@ -77,6 +78,11 @@ function App() {
               <Navigate to="/dashboard" replace />
             )
           }
+        />
+
+        <Route
+          path="/reset-password"
+          element={<ResetPassword />}
         />
 
         <Route
