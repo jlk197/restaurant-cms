@@ -4,12 +4,23 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest --coverage --detectOpenHandles",
+    "test:watch": "jest --watch",
     "dev": "nodemon index.js",
     "migrate": "cross-env DATABASE_URL=postgres://cms_user:cms_password@localhost:5432/cms_db node-pg-migrate",
     "migrate:up": "cross-env DATABASE_URL=postgres://cms_user:cms_password@localhost:5432/cms_db node-pg-migrate up",
     "migrate:down": "cross-env DATABASE_URL=postgres://cms_user:cms_password@localhost:5432/cms_db node-pg-migrate down",
     "migrate:create": "node-pg-migrate create"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/migrations/"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ]
   },
   "keywords": [],
   "author": "",
@@ -28,5 +39,10 @@
     "pg": "^8.16.3",
     "quill": "^2.0.3",
     "react-quill": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.2.0",
+    "supertest": "^7.2.2"
   }
 }
