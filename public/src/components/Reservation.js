@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 
 const Reservation = ({ contactItems = [], config = {} }) => {
-  console.log("Reservation:", config.contact_us_content);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -15,7 +14,6 @@ const Reservation = ({ contactItems = [], config = {} }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     console.log("Reservation submitted:", formData);
-    // Here you can add API call to submit reservation
     alert("Reservation submitted!");
   };
 
@@ -26,7 +24,6 @@ const Reservation = ({ contactItems = [], config = {} }) => {
     });
   };
 
-  // Group contact items by contact_type_value
   const groupedContacts = contactItems.reduce((acc, item) => {
     if (item.contact_type_value) {
       if (!acc[item.contact_type_value]) {
@@ -37,18 +34,6 @@ const Reservation = ({ contactItems = [], config = {} }) => {
     return acc;
   }, {});
 
-  console.log(groupedContacts);
-
-  // Get icon based on contact type
-  const getIcon = (contactType) => {
-    const type = contactType.toLowerCase();
-    if (type.includes("phone") || type.includes("telefon")) return "fa-phone";
-    if (type.includes("email") || type.includes("e-mail")) return "fa-envelope";
-    if (type.includes("address") || type.includes("adres"))
-      return "fa-map-marker";
-    if (type.includes("fax")) return "fa-fax";
-    return "fa-info-circle";
-  };
 
   return (
     <section className="section" id="reservation">
@@ -59,18 +44,12 @@ const Reservation = ({ contactItems = [], config = {} }) => {
               <div className="section-heading">
                 <h6>Contact Us</h6>
               </div>
-              {config.contact_us_content ? (
+              {config.contact_us_content && (
                 <div
                   dangerouslySetInnerHTML={{
                     __html: config.contact_us_content,
                   }}
                 />
-              ) : (
-                <p>
-                  Donec pretium est orci, non vulputate arcu hendrerit a. Fusce
-                  a eleifend riqsie, namei sollicitudin urna diam, sed commodo
-                  purus porta ut.
-                </p>
               )}
               {Object.keys(groupedContacts).length > 0 && (
                 <div className="row">
@@ -80,8 +59,37 @@ const Reservation = ({ contactItems = [], config = {} }) => {
                         className="col-lg-6 col-md-6 mb-4 mt-2"
                         key={contactType}
                       >
-                        <div className="phone">
-                          <i className={`fa ${getIcon(contactType)}`}></i>
+                        <div className="phone" style={{ position: "relative", paddingTop: "40px" }}>
+                          {items[0].contact_type_icon_url ? (
+                            <div
+                              style={{
+                                width: "80px",
+                                height: "80px",
+                                borderRadius: "50%",
+                                backgroundColor: "#fb5849",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                position: "absolute",
+                                top: "-40px",
+                                left: "50%",
+                                transform: "translateX(-50%)",
+                                boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+                              }}
+                            >
+                              <img
+                                src={items[0].contact_type_icon_url}
+                                alt={contactType}
+                                style={{
+                                  maxWidth: "40px",
+                                  maxHeight: "40px",
+                                  objectFit: "contain",
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <i className={`fa phone`}></i>
+                          )}
                           <h4>{contactType}</h4>
                           <span>
                             {items.map((item, idx) => (

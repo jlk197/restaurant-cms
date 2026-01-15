@@ -1186,10 +1186,10 @@ app.get("/api/contact-types", async (req, res) => {
 // Utwórz nowy typ kontaktu
 app.post("/api/contact-types", authenticateToken, async (req, res) => {
   try {
-    const { value, creator_id } = req.body;
+    const { value, icon_url, creator_id } = req.body;
     const result = await query(
-      "INSERT INTO contact_type (value, creator_id) VALUES ($1, $2) RETURNING *",
-      [value, creator_id]
+      "INSERT INTO contact_type (value, icon_url, creator_id) VALUES ($1, $2, $3) RETURNING *",
+      [value, icon_url, creator_id]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -1222,17 +1222,18 @@ app.delete("/api/contact-types/:id", authenticateToken, async (req, res) => {
 app.put("/api/contact-types/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { value, last_modificator_id } = req.body;
+    const { value, icon_url, last_modificator_id } = req.body;
 
     // Aktualizacja rekordu
     const result = await query(
       `UPDATE contact_type
        SET value = $1,
-           last_modificator_id = $2,
+           icon_url = $2,
+           last_modificator_id = $3,
            last_modification_time = NOW()
-       WHERE id = $3
+       WHERE id = $4
        RETURNING *`,
-      [value, last_modificator_id, id]
+      [value, icon_url, last_modificator_id, id]
     );
 
     if (result.rows.length === 0) {
@@ -1255,6 +1256,7 @@ app.get("/api/contact-items", async (req, res) => {
     const result = await query(`
       SELECT ci.*,
         ct.value as contact_type_value,
+        ct.icon_url as contact_type_icon_url,
         a1.name || ' ' || a1.surname as creator_name,
         a2.name || ' ' || a2.surname as modificator_name
       FROM contact_item ci

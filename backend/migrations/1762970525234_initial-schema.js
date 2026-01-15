@@ -60,6 +60,10 @@ exports.up = (pgm) => {
     value: {
       type: "varchar(20)",
     },
+    icon_url: {
+      type: "varchar(255)",
+      notNull: true,
+    },
     creation_time: {
       type: "timestamp",
       notNull: true,
