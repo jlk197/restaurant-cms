@@ -6,6 +6,8 @@ const API_CONFIG = {
       GET: "/api/administrators",
       ME: "/api/administrators/me",
       DELETE: "/api/administrators/delete/",
+      FORGOT_PASSWORD: "/api/administrators/forgot-password",
+      RESET_PASSWORD: "/api/administrators/reset-password",
     },
     CONFIGURATION: {
       GET: "/api/configuration",

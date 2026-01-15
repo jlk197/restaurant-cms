@@ -33,6 +33,20 @@ class AdministratorService extends BaseService {
       method: "PUT",
     });
   }
+
+  async forgotPassword(email) {
+    return this.request(API_CONFIG.ENDPOINTS.ADMINISTRATORS.FORGOT_PASSWORD, {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async resetPassword(token, newPassword) {
+    return this.request(API_CONFIG.ENDPOINTS.ADMINISTRATORS.RESET_PASSWORD, {
+      method: "POST",
+      body: JSON.stringify({ token, newPassword }),
+    });
+  }
 }
 
 export default new AdministratorService();

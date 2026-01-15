@@ -7,9 +7,10 @@ import administratorService from "../../services/administratorService";
 
 interface SignInFormProps {
   onLoginSuccess: (token: string) => void;
+  onForgotPassword?: () => void;
 }
 
-export default function SignInForm({ onLoginSuccess }: SignInFormProps) {
+export default function SignInForm({ onLoginSuccess, onForgotPassword }: SignInFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -56,7 +57,18 @@ export default function SignInForm({ onLoginSuccess }: SignInFormProps) {
           />
         </div>
         <div>
-          <Label>Hasło</Label>
+          <div className="flex items-center justify-between mb-2">
+            <Label>Password</Label>
+            {onForgotPassword && (
+              <button
+                type="button"
+                onClick={onForgotPassword}
+                className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+              >
+                Forgot password?
+              </button>
+            )}
+          </div>
           <div className="relative">
             <Input
               type={showPassword ? "text" : "password"}
@@ -80,7 +92,7 @@ export default function SignInForm({ onLoginSuccess }: SignInFormProps) {
         </div>
         <div className="pt-3">
           <Button className="w-full" size="sm" disabled={isLoading}>
-            {isLoading ? "Logowanie..." : "Zaloguj się"}
+            {isLoading ? "Signing in..." : "Sign In"}
           </Button>
         </div>
       </div>
