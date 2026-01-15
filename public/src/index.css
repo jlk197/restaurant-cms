@@ -11,3 +11,203 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Quill Content Display Styles */
+.quill-content {
+  line-height: 1.6;
+}
+
+/* Headers */
+.quill-content h1 {
+  font-size: 2.5em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+  margin-top: 1em;
+}
+
+.quill-content h2 {
+  font-size: 2em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+  margin-top: 0.8em;
+}
+
+.quill-content h3 {
+  font-size: 1.75em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+  margin-top: 0.7em;
+}
+
+.quill-content h4 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+  margin-top: 0.6em;
+}
+
+.quill-content h5 {
+  font-size: 1.25em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+  margin-top: 0.5em;
+}
+
+.quill-content h6 {
+  font-size: 1em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+  margin-top: 0.5em;
+}
+
+/* Text alignment */
+.quill-content .ql-align-center {
+  text-align: center;
+}
+
+.quill-content .ql-align-right {
+  text-align: right;
+}
+
+.quill-content .ql-align-justify {
+  text-align: justify;
+}
+
+/* Font sizes */
+.quill-content .ql-size-small {
+  font-size: 0.875em;
+}
+
+.quill-content .ql-size-large {
+  font-size: 1.25em;
+}
+
+.quill-content .ql-size-huge {
+  font-size: 1.75em;
+}
+
+/* Lists */
+.quill-content ul {
+  list-style-type: disc;
+  padding-left: 2em;
+  margin: 0.5em 0;
+}
+
+.quill-content ol {
+  list-style-type: decimal;
+  padding-left: 2em;
+  margin: 0.5em 0;
+}
+
+.quill-content li {
+  margin-bottom: 0.25em;
+}
+
+/* Indentation */
+.quill-content .ql-indent-1 { padding-left: 3em; }
+.quill-content .ql-indent-2 { padding-left: 6em; }
+.quill-content .ql-indent-3 { padding-left: 9em; }
+.quill-content .ql-indent-4 { padding-left: 12em; }
+.quill-content .ql-indent-5 { padding-left: 15em; }
+.quill-content .ql-indent-6 { padding-left: 18em; }
+.quill-content .ql-indent-7 { padding-left: 21em; }
+.quill-content .ql-indent-8 { padding-left: 24em; }
+
+/* Blockquote */
+.quill-content blockquote {
+  border-left: 4px solid #ccc;
+  padding-left: 1em;
+  font-style: italic;
+  margin: 1em 0;
+  color: #666;
+}
+
+/* Code */
+.quill-content code {
+  background-color: #f4f4f4;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+  font-family: 'Courier New', monospace;
+}
+
+.quill-content pre {
+  background-color: #f4f4f4;
+  padding: 1em;
+  border-radius: 5px;
+  margin: 1em 0;
+  overflow-x: auto;
+}
+
+.quill-content pre.ql-syntax {
+  background-color: #23241f;
+  color: #f8f8f2;
+  padding: 1em;
+  border-radius: 5px;
+  margin: 1em 0;
+  overflow-x: auto;
+}
+
+/* Links */
+.quill-content a {
+  color: #fb5849;
+  text-decoration: underline;
+}
+
+.quill-content a:hover {
+  color: #d9453a;
+}
+
+/* Images and Videos */
+.quill-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1em 0;
+}
+
+.quill-content video {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1em 0;
+}
+
+/* Text formatting */
+.quill-content strong {
+  font-weight: bold;
+}
+
+.quill-content em {
+  font-style: italic;
+}
+
+.quill-content u {
+  text-decoration: underline;
+}
+
+.quill-content s {
+  text-decoration: line-through;
+}
+
+/* Subscript and Superscript */
+.quill-content sub {
+  vertical-align: sub;
+  font-size: 0.75em;
+}
+
+.quill-content sup {
+  vertical-align: super;
+  font-size: 0.75em;
+}
+
+/* Paragraphs */
+.quill-content p {
+  margin-bottom: 1em;
+}
+
+/* Direction */
+.quill-content .ql-direction-rtl {
+  text-align: right;
+  direction: rtl;
+}

@@ -24,32 +24,12 @@ const About = ({ config = {} }) => {
               <div className="section-heading">
                 <h6>About Us</h6>
               </div>
-              {config.about_us_content ? (
+              {config.about_us_content && (
                 <div
+                  className="quill-content"
                   dangerouslySetInnerHTML={{ __html: config.about_us_content }}
                 />
-              ) : (
-                <p>
-                  Klassy Cafe is one of the best restaurant HTML templates with
-                  Bootstrap v4.5.2 CSS framework. You can download and feel free
-                  to use this website template layout for your restaurant
-                  business. You are allowed to use this template for commercial
-                  purposes. You are NOT allowed to redistribute the template ZIP
-                  file on any template download website. Please contact us for
-                  more information.
-                </p>
               )}
-              <div className="row">
-                <div className="col-4">
-                  <img src="assets/images/about-thumb-01.jpg" alt="" />
-                </div>
-                <div className="col-4">
-                  <img src="assets/images/about-thumb-02.jpg" alt="" />
-                </div>
-                <div className="col-4">
-                  <img src="assets/images/about-thumb-03.jpg" alt="" />
-                </div>
-              </div>
             </div>
           </div>
           <div className="col-lg-6 col-md-6 col-xs-12">
