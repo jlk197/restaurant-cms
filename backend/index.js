@@ -22,11 +22,12 @@ app.use(express.json());
 // Serve static files from public folder
 app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 
-// Multer configuration for file uploads
+ // Multer configuration for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, "public/uploads/");
   },
+
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(
@@ -36,11 +37,13 @@ const storage = multer.diskStorage({
   },
 });
 
+
 const upload = multer({
   storage: storage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
+
   fileFilter: function (req, file, cb) {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
     const extname = allowedTypes.test(
@@ -54,7 +57,7 @@ const upload = multer({
       cb(new Error("Only image files are allowed!"));
     }
   },
-});
+}); 
 
 // Test database connection on startup
 testConnection().catch((err) => {
@@ -399,28 +402,38 @@ app.get("/api/pages", async (req, res) => {
 
       if (Array.isArray(contentIds) && contentIds.length > 0) {
         try {
+          // --- POPRAWKA: Dodano LEFT JOIN do page_item i pobranie tytułu ---
           const contents = await query(`
             SELECT pc.item_type, 
                    ci.name as chef_name, ci.surname as chef_surname,
-                   mi.name as menu_name
+                   mi.name as menu_name,
+                   pi.title as page_item_title  -- <--- Pobieramy tytuł Page Item
             FROM page_content pc
             LEFT JOIN chef_item ci ON pc.id = ci.id
             LEFT JOIN menu_item mi ON pc.id = mi.id
+            LEFT JOIN page_item pi ON pc.id = pi.id -- <--- Łączymy z tabelą page_item
             WHERE pc.id = ANY($1::int[])
           `, [contentIds]);
 
           contentPreviews = contents.rows.map(row => {
+              // 1. Kucharz
               if (row.chef_name) return `👨‍🍳 ${row.chef_name} ${row.chef_surname}`;
+              // 2. Menu
               if (row.menu_name) return `🍽️ ${row.menu_name}`;
-              return row.item_type; // Np. "menu_item" jeśli nie ma nazwy
+              // 3. Page Item (Promocje/Info) - TU JEST IKONA DLA PAGE ITEM
+              if (row.page_item_title) return `📄 ${row.page_item_title}`; 
+              
+              return row.item_type; // Fallback
           });
         } catch (err) {
           console.error(`Błąd SQL przy stronie ${page.id}:`, err);
         }
       }
+      
       if (contentPreviews.length > 0) {
           console.log(`-> Strona "${page.title}" ma content:`, contentPreviews);
       }
+      
       return { ...page, contentPreviews };
     }));
 
@@ -471,6 +484,103 @@ app.get("/api/pages/:id", async (req, res) => {
 
   } catch (error) {
     console.error("Błąd /api/pages/:id:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get pages content by slug
+app.get("/api/pages/slug/:slug", async (req, res) => {
+  const { slug } = req.params;
+  console.log(`[API] Szukam strony: "${slug}"`);
+
+  try {
+    const cleanSlug = slug.replace(/^\//, "").trim().toLowerCase();
+    
+    // 1. Znajdź stronę
+    const allPages = await query("SELECT * FROM page");
+    const page = allPages.rows.find(p => (p.slug || "").replace(/^\//, "").trim().toLowerCase() === cleanSlug);
+
+    if (!page) return res.status(404).json({ success: false, error: "Page not found" });
+
+    let meta = page.meta_data;
+    try { meta = typeof meta === 'string' ? JSON.parse(meta) : meta || {}; } catch (e) { meta = {}; }
+    const contentIds = meta.content_ids || [];
+
+    let chefs = [];
+    let menu_items = [];
+    let page_items = [];
+
+    if (Array.isArray(contentIds) && contentIds.length > 0) {
+        const contents = await query(`
+            SELECT 
+                pc.item_type,
+                pc.image_url as content_image,
+                pc.is_active,  -- <--- POBIERAMY STATUS Z PAGE_CONTENT
+
+                -- Kucharz
+                ci.id as chef_id, ci.name as chef_name, ci.surname as chef_surname, 
+                ci.specialization, ci.facebook_link, ci.twitter_link, ci.instagram_link,
+
+                -- Menu
+                mi.id as menu_id, mi.name as menu_name, mi.description as menu_desc,
+                mi.price, 
+                
+                -- Page Item
+                pi.id as item_id, 
+                pi.title as item_title, 
+                pi.description as item_desc, 
+                pi.type as item_type_db
+
+            FROM page_content pc
+            LEFT JOIN chef_item ci ON pc.id = ci.id
+            LEFT JOIN menu_item mi ON pc.id = mi.id
+            LEFT JOIN page_item pi ON pc.id = pi.id
+            WHERE pc.id = ANY($1::int[])
+        `, [contentIds]);
+
+        contents.rows.forEach(row => {
+            const type = (row.item_type || "").toLowerCase();
+            
+            // Wspólny status dla wszystkich typów (pobrany z page_content)
+            const isActiveStatus = row.is_active; 
+
+            // 1. Kucharze
+            if (type.includes('chef') && row.chef_name) {
+                chefs.push({
+                    id: row.chef_id, 
+                    name: row.chef_name, surname: row.chef_surname, specialization: row.specialization, 
+                    image_url: row.content_image, 
+                    facebook_link: row.facebook_link, twitter_link: row.twitter_link, instagram_link: row.instagram_link,
+                    is_active: isActiveStatus // <--- Przypisanie
+                });
+            } 
+            // 2. Menu
+            else if (type.includes('menu') && row.menu_name) {
+                menu_items.push({
+                    id: row.menu_id, 
+                    name: row.menu_name, description: row.menu_desc, price: row.price, currency_code: "$", 
+                    image_url: row.content_image,
+                    is_active: isActiveStatus // <--- Przypisanie
+                });
+            } 
+            // 3. Page Items
+            else if (type.includes('page_item') || row.item_title) {
+                page_items.push({
+                    id: row.item_id, 
+                    title: row.item_title, 
+                    description: row.item_desc,
+                    type: row.item_type_db,
+                    image_url: row.content_image,
+                    is_active: isActiveStatus // <--- Przypisanie
+                });
+            }
+        });
+    }
+
+    res.json({ success: true, data: { ...page, chefs, menu_items, page_items } });
+
+  } catch (error) {
+    console.error(`Błąd:`, error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -558,17 +668,18 @@ app.delete("/api/pages/:id", authenticateToken, async (req, res) => {
 
 // === ENDPOINTS FOR MENU ===
 
+// GET Menu Items
 app.get("/api/menu-items", async (req, res) => {
   try {
     const result = await query(`
       SELECT 
         m.*, 
-        pc.image_url, pc.is_active, pc.position, pc.creation_time,
+        pc.image_url, pc.is_active, pc.is_visible_in_menu, pc.position, pc.creation_time,
         c.code as currency_code, c.name as currency_name
       FROM menu_item m
-      JOIN page_content pc ON m.id = pc.id   -- KLUCZOWE ŁĄCZENIE
+      JOIN page_content pc ON m.id = pc.id 
       LEFT JOIN currency c ON m.currency_id = c.id
-      ORDER BY pc.creation_time DESC
+      ORDER BY pc.position ASC, pc.creation_time DESC
     `);
     res.json({ success: true, data: result.rows });
   } catch (error) {
@@ -578,22 +689,30 @@ app.get("/api/menu-items", async (req, res) => {
 });
 
 // 2. CREATE NEW MENU ITEM (Musi najpierw utworzyć page_content!)
+// CREATE Menu Item
 app.post("/api/menu-items", authenticateToken, async (req, res) => {
   try {
     const { 
         name, description, price, currency_id, 
-        image_url, position, is_active = true
+        image_url, position, is_active, is_visible_in_menu 
     } = req.body;
 
+    // KROK 1: Wstawiamy do page_content (dodano is_visible_in_menu)
     const contentResult = await query(
-      `INSERT INTO page_content (item_type, image_url, is_active, position, creation_time) 
-       VALUES ('Menu_Item', $1, $2, $3, CURRENT_TIMESTAMP) 
+      `INSERT INTO page_content (item_type, image_url, is_active, is_visible_in_menu, position, creation_time) 
+       VALUES ('Menu_Item', $1, $2, $3, $4, CURRENT_TIMESTAMP) 
        RETURNING id`,
-      [image_url || '', is_active, position || 0]
+      [
+        image_url || '', 
+        is_active !== undefined ? is_active : true,
+        is_visible_in_menu !== undefined ? is_visible_in_menu : false, // Domyślnie false
+        position || 0
+      ]
     );
     
     const newId = contentResult.rows[0].id;
 
+    // KROK 2: Wstawiamy do menu_item
     const menuResult = await query(
       `INSERT INTO menu_item (id, name, description, price, currency_id) 
        VALUES ($1, $2, $3, $4, $5) 
@@ -603,7 +722,13 @@ app.post("/api/menu-items", authenticateToken, async (req, res) => {
 
     res.status(201).json({ 
         success: true, 
-        data: { ...menuResult.rows[0], image_url, is_active, position: position || 0 } 
+        data: { 
+            ...menuResult.rows[0], 
+            image_url, 
+            is_active, 
+            is_visible_in_menu, // Zwracamy nowe pole
+            position: position || 0 
+        } 
     });
 
   } catch (error) {
@@ -612,27 +737,30 @@ app.post("/api/menu-items", authenticateToken, async (req, res) => {
   }
 });
 
+// UPDATE Menu Item
 app.put("/api/menu-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-  
     const { 
       name, description, price, currency_id, 
-      image_url, position, is_active        
+      image_url, position, is_active, is_visible_in_menu 
     } = req.body;
 
+    // Aktualizacja page_content (dodano is_visible_in_menu)
     await query(
       `UPDATE page_content 
-       SET image_url = $1, is_active = $2, position = $3, last_modification_time = CURRENT_TIMESTAMP 
-       WHERE id = $4`,
+       SET image_url = $1, is_active = $2, position = $3, is_visible_in_menu = $4, last_modification_time = CURRENT_TIMESTAMP 
+       WHERE id = $5`,
       [
         image_url, 
         is_active,
-        position || 0,  
+        position || 0,
+        is_visible_in_menu, // Aktualizacja nowego pola
         id
       ]
     );
 
+    // Aktualizacja menu_item
     const result = await query(
       `UPDATE menu_item 
        SET name = $1, description = $2, price = $3, currency_id = $4 
@@ -651,7 +779,8 @@ app.put("/api/menu-items/:id", authenticateToken, async (req, res) => {
             ...result.rows[0], 
             image_url, 
             position, 
-            is_active 
+            is_active,
+            is_visible_in_menu 
         } 
     });
 
@@ -661,24 +790,22 @@ app.put("/api/menu-items/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// 4. DELETE MENU ITEM (Usuwamy rodzica, kaskada usunie dziecko)
 app.delete("/api/menu-items/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Usuwamy z page_content. Dzięki 'ON DELETE CASCADE' w bazie, 
-    // rekord z menu_item zniknie automatycznie.
+    await query("DELETE FROM menu_item WHERE id = $1", [id]);
     const result = await query(
       "DELETE FROM page_content WHERE id = $1 RETURNING id",
       [id]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: "Menu item not found" });
+      return res.status(404).json({ success: false, error: "Menu item not found or already deleted" });
     }
     
     res.json({ success: true, message: "Menu item deleted successfully" });
   } catch (error) {
+    console.error("Delete Error:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -686,11 +813,11 @@ app.delete("/api/menu-items/:id", authenticateToken, async (req, res) => {
 // === ENDPOINTS FOR ChefY (CHEFS) ===
 console.log("--> REJESTRACJA ENDPOINTÓW CHEFS...");
 
-// Get wszystkich Chefy + pola z page_content
+// GET Chefs
 app.get("/api/chefs", async (req, res) => {
   try {
     const result = await query(`
-      SELECT c.*, p.image_url, p.position, p.is_active
+      SELECT c.*, p.image_url, p.position, p.is_active, p.is_visible_in_menu
       FROM chef_item c
       LEFT JOIN page_content p ON c.id = p.id
       ORDER BY p.position ASC, c.id ASC
@@ -701,37 +828,39 @@ app.get("/api/chefs", async (req, res) => {
   }
 });
 
-// Create new Chef
+// CREATE Chef
 app.post("/api/chefs", authenticateToken, async (req, res) => {
   try {
     const {
       name, surname, specialization, facebook_link, instagram_link, twitter_link,
       image_url, 
-      position = 0, // Domyślnie 0
-      is_active = true // Domyślnie true
+      position = 0, 
+      is_active = true,
+      is_visible_in_menu = false // Nowe pole
     } = req.body;
 
     if (!name || !surname) {
       return res.status(400).json({ success: false, error: "Imie i nazwisko są wymagane!" });
     }
 
-    // KROK 1: Wstawiamy dane do tabeli page_content (parent)
+    // KROK 1: page_content (dodano is_visible_in_menu)
     const contentResult = await query(
       `INSERT INTO page_content 
-        (item_type, image_url, position, is_active, creation_time) 
-        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) 
+        (item_type, image_url, position, is_active, is_visible_in_menu, creation_time) 
+        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP) 
         RETURNING id`,
       [
           'Chef', 
           image_url || '', 
           position, 
-          is_active
+          is_active,
+          is_visible_in_menu
       ]
     );
 
     const newId = contentResult.rows[0].id;
 
-    // KROK 2: Wstawiamy dane do tabeli chef_item (child)
+    // KROK 2: chef_item
     const chefResult = await query(
       `INSERT INTO chef_item 
         (id, name, surname, specialization, facebook_link, instagram_link, twitter_link) 
@@ -746,6 +875,7 @@ app.post("/api/chefs", authenticateToken, async (req, res) => {
         image_url,
         position,
         is_active,
+        is_visible_in_menu,
         item_type: 'Chef'
     };
 
@@ -757,19 +887,18 @@ app.post("/api/chefs", authenticateToken, async (req, res) => {
   }
 });
 
-// Update Chef
+// UPDATE Chef
 app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
     const {
       name, surname, specialization, facebook_link, instagram_link, twitter_link,
-      image_url, position, is_active
+      image_url, position, is_active, is_visible_in_menu
     } = req.body;
 
     const safeImageUrl = image_url || ""; 
 
-    // 1. Aktualizacja child (chef_item)
     await query(
       `UPDATE chef_item SET 
         name = $1, surname = $2, specialization = $3, 
@@ -778,20 +907,20 @@ app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
       [name, surname, specialization, facebook_link, instagram_link, twitter_link, id]
     );
 
-    // 2. Aktualizacja parent (page_content) - w tym position i is_active
+    // 2. Aktualizacja parent (page_content)
     await query(
       `UPDATE page_content SET 
         image_url = $1,
         position = $2,
         is_active = $3,
+        is_visible_in_menu = $4,
         last_modification_time = CURRENT_TIMESTAMP
-      WHERE id = $4`,
-      [safeImageUrl, position || 0, is_active, id]
+      WHERE id = $5`,
+      [safeImageUrl, position || 0, is_active, is_visible_in_menu, id]
     );
 
-    // 3. Return full updated object
     const result = await query(
-      `SELECT c.*, p.image_url, p.position, p.is_active
+      `SELECT c.*, p.image_url, p.position, p.is_active, p.is_visible_in_menu
        FROM chef_item c
        JOIN page_content p ON c.id = p.id
        WHERE c.id = $1`,
@@ -810,14 +939,24 @@ app.put("/api/chefs/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// 4. DELETE CHEF
+// 4. DELETE CHEF (Naprawione: usuwa dziecko ORAZ rodzica)
 app.delete("/api/chefs/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await query("DELETE FROM chef_item WHERE id = $1 RETURNING id", [id]);
-    if (result.rows.length === 0) return res.status(404).json({ success: false, error: "Not found" });
-    res.json({ success: true, message: "Deleted" });
+    await query("DELETE FROM chef_item WHERE id = $1", [id]);
+
+    const result = await query(
+        "DELETE FROM page_content WHERE id = $1 RETURNING id", 
+        [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Chef not found" });
+    }
+
+    res.json({ success: true, message: "Chef deleted successfully" });
   } catch (error) {
+    console.error("Delete Chef Error:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

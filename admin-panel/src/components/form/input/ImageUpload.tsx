@@ -4,11 +4,13 @@ import API_CONFIG from "../../../config/api";
 interface ImageUploadProps {
   currentImage?: string;
   onImageUploaded: (url: string) => void;
+  className?: string; // Opcjonalnie: do przekazywania dodatkowych klas z zewnątrz
 }
 
 const ImageUpload: React.FC<ImageUploadProps> = ({
   currentImage,
   onImageUploaded,
+  className = "",
 }) => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string>("");
@@ -24,20 +26,14 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // File type validation
-    const allowedTypes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-    ];
+    // 1. Walidacja typu
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
       setError("Only image files are allowed (JPG, PNG, GIF, WebP)");
       return;
     }
 
-    // File size validation (5MB)
+    // 2. Walidacja rozmiaru (5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError("File is too large. Maximum size is 5MB");
       return;
@@ -51,7 +47,10 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       formData.append("image", file);
 
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/upload`, {
+      // Upewniamy się, że nie ma podwójnego slash w URL
+      const baseUrl = API_CONFIG.BASE_URL.replace(/\/$/, "");
+      
+      const response = await fetch(`${baseUrl}/api/upload`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -62,14 +61,19 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       const data = await response.json();
 
       if (data.success) {
-        const fullUrl = `${API_CONFIG.BASE_URL}${data.url}`;
+        // Konstrukcja pełnego URL (zakładając, że backend zwraca ścieżkę względną)
+        const relativeUrl = data.url.startsWith("/") ? data.url : `/${data.url}`;
+        const fullUrl = `${baseUrl}${relativeUrl}`;
+        
         setPreview(fullUrl);
         onImageUploaded(fullUrl);
       } else {
         setError(data.error || "Error uploading file");
+        // Reset inputa w przypadku błędu (opcjonalne)
+        event.target.value = "";
       }
     } catch (err) {
-      setError("Error uploading file");
+      setError("Server connection failed during upload");
       console.error("Upload error:", err);
     } finally {
       setUploading(false);
@@ -77,30 +81,66 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   };
 
   return (
-    <div className="space-y-3 ">
-      {preview && (
-        <div className="relative inline-block">
-          <img
-            src={preview}
-            alt="Preview"
-            className="max-w-xs h-auto border border-gray-200 rounded-lg dark:border-gray-800"
-          />
-        </div>
-      )}
+    <div className={`w-full ${className}`}>
+      
+      {/* --- SEKCJA PODGLĄDU --- */}
+      {/* Ten kontener pilnuje, żeby zdjęcie nie było za duże */}
+      <div className="mb-4 w-full flex justify-center bg-gray-50 dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden relative min-h-[150px]">
+        
+        {uploading ? (
+          // Stan ładowania (Spinner)
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-gray-900/80 z-10">
+            <svg className="animate-spin h-8 w-8 text-blue-600 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span className="text-sm font-medium text-blue-600">Uploading...</span>
+          </div>
+        ) : preview ? (
+          // Wyświetlanie zdjęcia
+          <div className="relative w-full flex justify-center p-2">
+            <img
+              src={preview}
+              alt="Preview"
+              className="max-h-64 w-auto object-contain rounded-md shadow-sm" 
+              // max-h-64 to klucz: zdjęcie nigdy nie będzie wyższe niż 256px
+            />
+          </div>
+        ) : (
+          // Placeholder gdy brak zdjęcia
+          <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+            <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            <span className="text-sm">No image selected</span>
+          </div>
+        )}
+      </div>
 
-      <div>
+      {/* --- SEKCJA INPUTA --- */}
+      <div className="relative">
         <input
           type="file"
           accept="image/*"
           onChange={handleFileChange}
           disabled={uploading}
-          className="focus:border-ring-brand-300 h-11 w-full overflow-hidden rounded-lg border border-gray-300 bg-transparent text-sm text-gray-500 shadow-theme-xs transition-colors file:mr-5 file:border-collapse file:cursor-pointer file:rounded-l-lg file:border-0 file:border-r file:border-solid file:border-gray-200 file:bg-gray-50 file:py-3 file:pl-3.5 file:pr-3 file:text-sm file:text-gray-700 placeholder:text-gray-400 hover:file:bg-gray-100 focus:outline-none focus:file:ring-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:text-white/90 dark:file:border-gray-800 dark:file:bg-white/[0.03] dark:file:text-gray-400 dark:placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="block w-full text-sm text-gray-500
+            file:mr-4 file:py-2.5 file:px-4
+            file:rounded-full file:border-0
+            file:text-sm file:font-semibold
+            file:bg-blue-50 file:text-blue-700
+            hover:file:bg-blue-100
+            cursor-pointer disabled:cursor-not-allowed disabled:opacity-50
+          "
         />
       </div>
 
-      {uploading && <div className="text-sm text-blue-500">Uploading...</div>}
-
-      {error && <div className="text-sm text-red-500">{error}</div>}
+      {/* --- SEKCJA BŁĘDÓW --- */}
+      {error && (
+        <div className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded border border-red-200">
+          {error}
+        </div>
+      )}
     </div>
   );
 };

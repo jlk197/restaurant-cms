@@ -15,8 +15,9 @@ interface Chef {
   instagram_link: string;
   twitter_link: string;
   image_url: string;
-  position: number;    // New field
-  is_active: boolean;  // New field
+  position: number;
+  is_active: boolean;
+  is_visible_in_menu: boolean; // NOWE POLE
 }
 
 interface ChefModalProps {
@@ -40,8 +41,9 @@ export default function ChefModal({
     instagram_link: "",
     twitter_link: "",
     image_url: "",
-    position: 0,      // Default 0
-    is_active: true,  // Default true
+    position: 0,
+    is_active: true,
+    is_visible_in_menu: false, // Domyślnie false
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -61,9 +63,11 @@ export default function ChefModal({
             image_url: chefToEdit.image_url || "",
             position: chefToEdit.position !== undefined ? chefToEdit.position : 0,
             is_active: chefToEdit.is_active !== undefined ? chefToEdit.is_active : true,
+            // Obsługa nowego pola przy edycji
+            is_visible_in_menu: chefToEdit.is_visible_in_menu !== undefined ? chefToEdit.is_visible_in_menu : false,
         });
       } else {
-        // Reset form
+        // Reset formularza
         setFormData({
           name: "",
           surname: "",
@@ -74,6 +78,7 @@ export default function ChefModal({
           image_url: "",
           position: 0,
           is_active: true,
+          is_visible_in_menu: false,
         });
       }
       setError("");
@@ -151,30 +156,60 @@ export default function ChefModal({
           />
         </div>
 
-        {/* Position & Status Row */}
-        <div className="grid grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
-            <div>
-                <Label>Position (Order)</Label>
-                <Input
-                    type="number"
-                    value={formData.position}
-                    onChange={(e) => setFormData({ ...formData, position: Number(e.target.value) })}
-                    placeholder="0"
-                />
-            </div>
-            <div className="flex flex-col justify-center">
-                <Label>Status</Label>
-                <label className="flex items-center cursor-pointer mt-2">
+        {/* --- NOWA SEKCJA STATUSÓW --- */}
+        <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* 1. Pozycja */}
+                <div>
+                    <Label>Position (Order)</Label>
+                    <Input
+                        type="number"
+                        value={formData.position}
+                        onChange={(e) => setFormData({ ...formData, position: Number(e.target.value) })}
+                        placeholder="0"
+                        className="bg-white"
+                    />
+                </div>
+
+                {/* 2. Checkboxy Statusów */}
+                <div className="flex flex-col gap-3 justify-center">
+                    {/* Global Active */}
+                    <label className="flex items-center cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        className="w-5 h-5 text-green-600 rounded focus:ring-green-500 border-gray-300"
+                        checked={formData.is_active}
+                        onChange={(e) => {
+                            const newActiveState = e.target.checked;
+                              setFormData(prev => ({
+                                ...prev,
+                                is_active: newActiveState,
+                                is_visible_in_menu: newActiveState ? prev.is_visible_in_menu : false
+                              }));
+                          }}
+                      />
+                        <div className="ml-3">
+                            <span className="block text-sm font-medium text-gray-700 dark:text-gray-200">Is Active</span>
+                            <span className="block text-xs text-gray-400">Available in system</span>
+                        </div>
+                    </label>
+
+                    {/* Home Page Promo */}
+                    <label className="flex items-center cursor-pointer">
                     <input 
                         type="checkbox" 
                         className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
-                        checked={formData.is_active}
-                        onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
-                    />
-                    <span className="ml-3 font-medium text-gray-700 dark:text-gray-200">
-                        {formData.is_active ? "Active (Visible)" : "Hidden"}
-                    </span>
-                </label>
+                        checked={formData.is_visible_in_menu}
+                        disabled={!formData.is_active} 
+                        onChange={(e) => setFormData({...formData, is_visible_in_menu: e.target.checked})}
+                      />
+                        <div className="ml-3">
+                            <span className="block text-sm font-medium text-gray-700 dark:text-gray-200">Promote on Home Page</span>
+                            <span className="block text-xs text-gray-400">Visible on Home Page</span>
+                        </div>
+                    </label>
+                </div>
             </div>
         </div>
 

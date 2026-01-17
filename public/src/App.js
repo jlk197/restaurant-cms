@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Preloader from "./components/Preloader";
 import Header from "./components/Header";
 import Banner from "./components/Banner";
@@ -8,6 +10,7 @@ import Chefs from "./components/Chefs";
 import Reservation from "./components/Reservation";
 import Footer from "./components/Footer";
 import apiService from "./api/api_service";
+import DynamicPage from "./components/DynamicPage";
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -67,18 +70,25 @@ function App() {
   }
 
   return (
-    <>
+    <BrowserRouter>
       <Header navigation={data.navigation} config={data.configuration} />
-      <Banner sliderImages={data.sliderImages} config={data.configuration} />
-      <About pages={data.pages} config={data.configuration} />
-      <Menu config={data.configuration} />
-      <Chefs chefs={data.chefs} config={data.configuration} />
-      <Reservation
-        contactItems={data.contactItems}
-        config={data.configuration}
-      />
+<Routes>
+          <Route path="/" element={
+            <>
+              <Banner sliderImages={data.sliderImages} config={data.configuration} />
+              <About pages={data.pages} config={data.configuration} />
+              <Menu config={data.configuration} />
+              <Chefs chefs={data.chefs} config={data.configuration} />
+              <Reservation contactItems={data.contactItems} config={data.configuration} />
+            </>
+          } />
+          <Route 
+             path="/:slug" 
+             element={<DynamicPage />} 
+          />
+      </Routes>
       <Footer config={data.configuration} />
-    </>
+    </BrowserRouter>
   );
 }
 
