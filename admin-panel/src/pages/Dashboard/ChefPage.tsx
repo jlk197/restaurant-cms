@@ -25,8 +25,9 @@ interface Chef {
   instagram_link: string;
   twitter_link: string;
   image_url: string;
-  position: number;    // New field
-  is_active: boolean;  // New field
+  position: number;
+  is_active: boolean;
+  is_visible_in_menu: boolean; // NOWE POLE
 }
 
 export default function ChefPage() {
@@ -104,7 +105,7 @@ export default function ChefPage() {
               </div>
 
               {/* PHOTO */}
-              <div className="flex-shrink-0 mt-3"> {/* Added mt-3 to give space for badge */}
+              <div className="flex-shrink-0 mt-3">
                 {chef.image_url ? (
                   <img 
                     src={chef.image_url} 
@@ -127,12 +128,25 @@ export default function ChefPage() {
                     </h4>
                 </div>
 
-                {/* ACTIVE / HIDDEN INDICATOR */}
-                <div className="flex items-center mb-1">
-                    <span className={`inline-block w-2.5 h-2.5 rounded-full mr-1.5 ${chef.is_active ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                        {chef.is_active ? 'Active' : 'Hidden'}
-                    </span>
+                {/* --- PODWÓJNY STATUS --- */}
+                <div className="flex flex-col gap-1 my-1.5">
+                    {/* Status Globalny */}
+                    <div className="flex items-center">
+                        <span className={`inline-block w-2.5 h-2.5 rounded-full mr-1.5 ${chef.is_active ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                            {chef.is_active ? 'Active' : 'Hidden'}
+                        </span>
+                    </div>
+
+                    {/* Status Home Page */}
+                    {chef.is_visible_in_menu && (
+                        <div className="flex items-center">
+                            <span className="inline-block w-2.5 h-2.5 rounded-full mr-1.5 bg-blue-500"></span>
+                            <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                                On Home Page
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 <p className="text-sm text-blue-600 dark:text-blue-400 mb-2 truncate">

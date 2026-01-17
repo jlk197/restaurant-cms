@@ -9,7 +9,7 @@ import { MenuItemFormData } from "../../models/menu";
 import { Currency } from "../../models/currency";
 import currencyService from "../../services/currencyService"
 
-// Definicja typów lokalnie (lub import z modelu)
+// Definicja typów lokalnie
 interface MenuItem {
   id?: number;
   name: string;
@@ -17,8 +17,9 @@ interface MenuItem {
   price: string | number;
   currency_id?: number;
   image_url: string;
-  position: number;    // NOWE POLE
-  is_active: boolean;  // NOWE POLE
+  position: number;
+  is_active: boolean;
+  is_visible_in_menu: boolean; // NOWE POLE
 }
 
 interface MenuModalProps {
@@ -29,15 +30,15 @@ interface MenuModalProps {
 }
 
 export default function MenuModal({ isOpen, closeModal, onSuccess, itemToEdit }: MenuModalProps) {
-  // Rozszerzony stan formularza
-  const [formData, setFormData] = useState<MenuItemFormData>({
+  const [formData, setFormData] = useState<MenuItem>({
     name: "",
     description: "",
     price: "",
     currency_id: 1,
     image_url: "",
-    position: 0,      // Default 0
-    is_active: true,  // Default true
+    position: 0,
+    is_active: true,
+    is_visible_in_menu: false, // Domyślnie false
   });
 
   const [currencies, setCurrencies] = useState<Currency[]>([]);
@@ -58,7 +59,6 @@ export default function MenuModal({ isOpen, closeModal, onSuccess, itemToEdit }:
     if (isOpen) {
       fetchCurrenciesData();
       if (itemToEdit) {
-        // Mapowanie istniejącego obiektu do formularza
         setFormData({
             id: itemToEdit.id,
             name: itemToEdit.name || "",
@@ -68,9 +68,10 @@ export default function MenuModal({ isOpen, closeModal, onSuccess, itemToEdit }:
             image_url: itemToEdit.image_url || "",
             position: itemToEdit.position !== undefined ? itemToEdit.position : 0,
             is_active: itemToEdit.is_active !== undefined ? itemToEdit.is_active : true,
+            // Obsługa nowego pola
+            is_visible_in_menu: itemToEdit.is_visible_in_menu !== undefined ? itemToEdit.is_visible_in_menu : false,
         });
       } else {
-        // Reset formularza
         setFormData({ 
             name: "", 
             description: "", 
@@ -78,7 +79,8 @@ export default function MenuModal({ isOpen, closeModal, onSuccess, itemToEdit }:
             currency_id: 1, 
             image_url: "", 
             position: 0, 
-            is_active: true 
+            is_active: true,
+            is_visible_in_menu: false 
         });
       }
       setError("");
@@ -137,7 +139,7 @@ export default function MenuModal({ isOpen, closeModal, onSuccess, itemToEdit }:
             />
         </div>
 
-        {/* Wiersz 3: Cena, Waluta, Pozycja */}
+        {/* Wiersz 3: Cena, Waluta */}
         <div className="grid grid-cols-2 gap-4">
             <div className="col-span-1">
                 <Label>Price & Currency</Label>
@@ -162,22 +164,8 @@ export default function MenuModal({ isOpen, closeModal, onSuccess, itemToEdit }:
                     </select>
                 </div>
             </div>
-
-            {/* NOWE POLE: POSITION */}
-            <div className="col-span-1">
-                <Label>Position (Order)</Label>
-                <Input 
-                    type="number"
-                    value={formData.position}
-                    onChange={(e) => setFormData({...formData, position: Number(e.target.value)})}
-                    placeholder="0"
-                />
-            </div>
-        </div>
-
-        {/* Wiersz 4: Zdjęcie i Status */}
-        <div className="grid grid-cols-2 gap-4">
-            <div>
+            
+             <div>
                  <Label>Dish Photo</Label>
                  <div className="mt-1">
                     <ImageUpload 
@@ -187,21 +175,63 @@ export default function MenuModal({ isOpen, closeModal, onSuccess, itemToEdit }:
                     />
                  </div>
             </div>
-            
-            {/* NOWE POLE: IS ACTIVE */}
-            <div className="flex flex-col justify-center">
-                <Label>Status</Label>
-                <label className="flex items-center cursor-pointer mt-2 p-3 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                    <input 
-                        type="checkbox" 
-                        className="w-5 h-5 text-green-600 rounded focus:ring-green-500 border-gray-300"
-                        checked={formData.is_active}
-                        onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+        </div>
+
+        {/* NOWA SEKCJA STATUSÓW I POZYCJI */}
+        <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
+            <div className="grid grid-cols-2 gap-6">
+                
+                {/* 1. Pozycja */}
+                <div>
+                    <Label>Position (Order)</Label>
+                    <Input 
+                        type="number"
+                        value={formData.position}
+                        onChange={(e) => setFormData({...formData, position: Number(e.target.value)})}
+                        placeholder="0"
+                        className="bg-white"
                     />
-                    <span className="ml-3 font-medium text-gray-700 dark:text-gray-200">
-                        {formData.is_active ? "Visible on Menu" : "Hidden"}
-                    </span>
-                </label>
+                </div>
+
+                {/* 2. Checkboxy Statusów */}
+                <div className="flex flex-col gap-3 justify-center">
+                    {/* Global Active */}
+                    <label className="flex items-center cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            className="w-5 h-5 text-green-600 rounded focus:ring-green-500 border-gray-300"
+                            checked={formData.is_active}
+                            onChange={(e) => {
+                                const newActiveState = e.target.checked;
+                                setFormData(prev => ({
+                                    ...prev,
+                                    is_active: newActiveState,
+                                    // Jeśli wyłączamy Active, wymuś wyłączenie widoczności na Home
+                                    is_visible_in_menu: newActiveState ? prev.is_visible_in_menu : false
+                                }));
+                            }}
+                        />
+                        <div className="ml-3">
+                            <span className="block text-sm font-medium text-gray-700 dark:text-gray-200">Is Active</span>
+                            <span className="block text-xs text-gray-400">Available in system</span>
+                        </div>
+                    </label>
+
+                    {/* Home Page Promo */}
+                    <label className={`flex items-center ${!formData.is_active ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                        <input 
+                            type="checkbox" 
+                            className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                            checked={formData.is_visible_in_menu}
+                            disabled={!formData.is_active} // Zablokowane jeśli nieaktywne
+                            onChange={(e) => setFormData({...formData, is_visible_in_menu: e.target.checked})}
+                        />
+                        <div className="ml-3">
+                            <span className="block text-sm font-medium text-gray-700 dark:text-gray-200">Promote on Home Page</span>
+                            <span className="block text-xs text-gray-400">Visible on Home Page</span>
+                        </div>
+                    </label>
+                </div>
             </div>
         </div>
 

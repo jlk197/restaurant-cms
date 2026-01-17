@@ -45,6 +45,9 @@ export default function PageModal({
     contents: [],
   });
 
+  // Nowy stan do śledzenia, czy slug był edytowany ręcznie
+  const [isSlugEdited, setIsSlugEdited] = useState(false);
+
   const [availableContent, setAvailableContent] = useState<PageContentItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -54,11 +57,47 @@ export default function PageModal({
       await loadContentOptions();
       if (pageToEdit?.id) {
         await fetchPageDetails(pageToEdit.id);
+        // Jeśli edytujemy istniejącą stronę, zakładamy że slug jest już "ustalony" (edytowany)
+        setIsSlugEdited(true);
+      } else {
+        // Przy nowej stronie resetujemy flagę
+        setIsSlugEdited(false);
       }
     };
 
     init();
   }, []);
+
+  // Funkcja pomocnicza do generowania sluga
+  const generateSlug = (text: string) => {
+    return text
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/[\s\W-]+/g, '-') // Zamień spacje i znaki specjalne na myślniki
+      .replace(/^-+|-+$/g, '');   // Usuń myślniki z początku i końca
+      // Opcjonalnie: można dodać usuwanie polskich znaków (np. ą -> a), jeśli jest taka potrzeba
+  };
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    
+    setFormData(prev => {
+        const newState = { ...prev, title: newTitle };
+        
+        // Automatycznie generuj slug TYLKO JEŚLI użytkownik nie edytował go ręcznie
+        if (!isSlugEdited) {
+            newState.slug = generateSlug(newTitle);
+        }
+        return newState;
+    });
+  };
+
+  const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData({ ...formData, slug: e.target.value });
+      // Oznaczamy, że użytkownik ingerował w pole slug -> wyłączamy automatyzację
+      setIsSlugEdited(true);
+  };
 
   const loadContentOptions = async () => {
     try {
@@ -74,9 +113,7 @@ export default function PageModal({
     try {
       const res = await pageService.getById(id);
       
-      // DIAGNOSTYKA ZDJĘCIA
       console.log("[MODAL] Pobrane dane strony:", res.data);
-      console.log("[MODAL] URL zdjęcia z bazy:", res.data.header_image_url);
 
       if (res.success) {
         setFormData((prev) => ({
@@ -85,11 +122,11 @@ export default function PageModal({
           title: res.data.title,
           description: res.data.description || "",
           slug: res.data.slug,
-          
           header_image_url: res.data.header_image_url || "", 
-          
           contents: res.data.contents ? res.data.contents.map((c: any) => c.id) : [],
         }));
+        // Przy ładowaniu danych ustawiamy flagę, żeby zmiana tytułu nie nadpisała istniejącego sluga
+        setIsSlugEdited(true);
       }
     } catch (err) {
       setError("Failed to load page details");
@@ -105,7 +142,6 @@ export default function PageModal({
 
     try {
       let response;
-      // 3. LOGIKA ZAPISU: Decyzja na podstawie formData.id
       if (formData.id) {
         console.log("Saving changes to Page ID:", formData.id);
         response = await pageService.update(formData.id, formData);
@@ -159,7 +195,8 @@ export default function PageModal({
               type="text"
               placeholder="e.g. About Us"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              // Używamy nowej funkcji obsługi zmiany tytułu
+              onChange={handleTitleChange}
               required
             />
           </div>
@@ -169,9 +206,14 @@ export default function PageModal({
               type="text"
               placeholder="e.g. about-us"
               value={formData.slug}
-              onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+              // Używamy nowej funkcji obsługi zmiany sluga
+              onChange={handleSlugChange}
               required
             />
+            {/* Opcjonalnie: informacja dla użytkownika */}
+            {!isSlugEdited && formData.slug && (
+                 <p className="text-xs text-gray-400 mt-1">Generated automatically from title</p>
+            )}
           </div>
         </div>
 
@@ -180,7 +222,6 @@ export default function PageModal({
           <div className="mt-1">
             <RichTextEditor
                 value={formData.description}
-                // RichTextEditor zwraca string (HTML), nie event, więc przypisujemy bezpośrednio
                 onChange={(value) => setFormData({ ...formData, description: value })}
                 placeholder="Enter page description..."
             />
@@ -191,10 +232,10 @@ export default function PageModal({
             <Label>Header Image</Label>
             <div className="mt-1">
                 <ImageUpload
-            key={formData.header_image_url || "new"}
-            currentImage={formData.header_image_url}
-            onImageUploaded={(url) => setFormData(prev => ({ ...prev, header_image_url: url }))}
-        />
+                    key={formData.header_image_url || "new"}
+                    currentImage={formData.header_image_url}
+                    onImageUploaded={(url) => setFormData(prev => ({ ...prev, header_image_url: url }))}
+                />
             </div>
         </div>
 
@@ -214,7 +255,7 @@ export default function PageModal({
                               <input 
                                   type="checkbox"
                                   checked={formData.contents.includes(item.id)}
-                                  onChange={() => {}} // Obsłużone w onClick diva
+                                  onChange={() => {}} 
                                   className="w-4 h-4 text-blue-600 rounded cursor-pointer"
                               />
                               <div className="text-sm">
