@@ -29,8 +29,10 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters long");
+    // Validate password strength (same as admin creation)
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      setError("Password must be at least 8 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character (@$!%*?&)");
       return;
     }
 
@@ -67,7 +69,7 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
             Reset Password
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Enter your new password below.
+            Password must be at least 8 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character (@$!%*?&).
           </p>
         </div>
 
@@ -93,6 +95,9 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
               onChange={(e) => setNewPassword(e.target.value)}
               disabled={isLoading}
               required
+              minLength={8}
+              pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
+              title="Min. 8 znaków, mała i duża litera, cyfra oraz znak specjalny (@$!%*?&)"
             />
             <button
               type="button"
@@ -118,6 +123,9 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
               onChange={(e) => setConfirmPassword(e.target.value)}
               disabled={isLoading}
               required
+              minLength={8}
+              pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
+              title="Min. 8 znaków, mała i duża litera, cyfra oraz znak specjalny (@$!%*?&)"
             />
             <button
               type="button"
