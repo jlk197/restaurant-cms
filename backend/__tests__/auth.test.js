@@ -83,8 +83,8 @@ app.post("/api/password-reset/request", async (req, res) => {
     const expiresAt = new Date(Date.now() + 3600000); // 1 hour
 
     await query(
-      "INSERT INTO password_reset_token (administrator_id, token, expires_at) VALUES ($1, $2, $3)",
-      [adminId, resetToken, expiresAt]
+      "UPDATE administrator SET password_reset_token = $1, password_reset_token_expires_at = $2 WHERE id = $3",
+      [resetToken, expiresAt, adminId]
     );
 
     res.json({ success: true, message: "If email exists, reset link will be sent", token: resetToken });
@@ -103,7 +103,7 @@ app.post("/api/password-reset/reset", async (req, res) => {
     }
 
     const result = await query(
-      "SELECT administrator_id, expires_at FROM password_reset_token WHERE token = $1 AND used = false",
+      "SELECT id, password_reset_token_expires_at FROM administrator WHERE password_reset_token = $1",
       [token]
     );
 
@@ -111,22 +111,17 @@ app.post("/api/password-reset/reset", async (req, res) => {
       return res.status(400).json({ success: false, error: "Invalid or expired token" });
     }
 
-    const resetData = result.rows[0];
+    const admin = result.rows[0];
 
-    if (new Date() > new Date(resetData.expires_at)) {
+    if (new Date() > new Date(admin.password_reset_token_expires_at)) {
       return res.status(400).json({ success: false, error: "Token has expired" });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     await query(
-      "UPDATE administrator SET password = $1 WHERE id = $2",
-      [hashedPassword, resetData.administrator_id]
-    );
-
-    await query(
-      "UPDATE password_reset_token SET used = true WHERE token = $1",
-      [token]
+      "UPDATE administrator SET password = $1, password_reset_token = NULL, password_reset_token_expires_at = NULL WHERE id = $2",
+      [hashedPassword, admin.id]
     );
 
     res.json({ success: true, message: "Password reset successful" });
@@ -281,10 +276,9 @@ describe("Authentication Endpoints", () => {
       const futureDate = new Date(Date.now() + 3600000);
       query
         .mockResolvedValueOnce({
-          rows: [{ administrator_id: 1, expires_at: futureDate }]
-        }) // SELECT token
-        .mockResolvedValueOnce({ rows: [] }) // UPDATE password
-        .mockResolvedValueOnce({ rows: [] }); // UPDATE token
+          rows: [{ id: 1, password_reset_token_expires_at: futureDate }]
+        }) // SELECT admin with token
+        .mockResolvedValueOnce({ rows: [] }); // UPDATE password and clear token
 
       const response = await request(app)
         .post("/api/password-reset/reset")
@@ -310,7 +304,7 @@ describe("Authentication Endpoints", () => {
     it("should return 400 with expired token", async () => {
       const pastDate = new Date(Date.now() - 3600000);
       query.mockResolvedValue({
-        rows: [{ administrator_id: 1, expires_at: pastDate }]
+        rows: [{ id: 1, password_reset_token_expires_at: pastDate }]
       });
 
       const response = await request(app)

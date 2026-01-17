@@ -2,16 +2,16 @@ import API_CONFIG from "../config/api";
 import BaseService from "./baseService";
 
 class ContactItemService extends BaseService {
-  async getAll() {
-    return this.request(API_CONFIG.ENDPOINTS.CONTACT_ITEMS.GET, {
-      method: "GET",
-    });
-  }
-
   async add(type) {
     return this.request(API_CONFIG.ENDPOINTS.CONTACT_ITEMS.ADD, {
       method: "POST",
       body: JSON.stringify(type),
+    });
+  }
+
+  async getAll() {
+    return this.request(API_CONFIG.ENDPOINTS.CONTACT_ITEMS.GET, {
+      method: "GET",
     });
   }
 

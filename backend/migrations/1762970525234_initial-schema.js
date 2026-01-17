@@ -33,6 +33,14 @@ exports.up = (pgm) => {
       type: "varchar(255)",
       notNull: true,
     },
+    password_reset_token: {
+      type: "varchar(255)",
+      notNull: false,
+    },
+    password_reset_token_expires_at: {
+      type: "timestamp",
+      notNull: false,
+    },
   });
 
   // Dodaj domyślnego administratora (login: admin, hasło: admin)
@@ -40,49 +48,6 @@ exports.up = (pgm) => {
     INSERT INTO administrator (name, surname, email, password)
     VALUES ('Admin', 'System', 'admin@cms.local', '$2b$10$XzlxSyPMesYTwFkfYoEuquaNPqNVlJr0N6.3OQhRV/nmHcToRcTx6')
   `);
-
-  // Tabela Password_Reset_Token
-  pgm.createTable("password_reset_token", {
-    id: "id",
-    administrator_id: {
-      type: "integer",
-      notNull: true,
-      references: "administrator",
-      onDelete: "CASCADE",
-    },
-    email: {
-      type: "varchar(50)",
-      notNull: true,
-    },
-    token: {
-      type: "varchar(255)",
-      notNull: true,
-      unique: true,
-    },
-    expires_at: {
-      type: "timestamp",
-      notNull: true,
-    },
-    created_at: {
-      type: "timestamp",
-      notNull: true,
-      default: pgm.func("current_timestamp"),
-    },
-    used: {
-      type: "boolean",
-      notNull: true,
-      default: false,
-    },
-  });
-
-  // Add index on administrator_id for faster lookups
-  pgm.createIndex("password_reset_token", "administrator_id");
-
-  // Add index on email for faster lookups
-  pgm.createIndex("password_reset_token", "email");
-
-  // Add index on token for faster lookups
-  pgm.createIndex("password_reset_token", "token");
 
   // Tabela Currency
   pgm.createTable("currency", {
@@ -102,6 +67,7 @@ exports.up = (pgm) => {
     id: "id",
     value: {
       type: "varchar(20)",
+      notNull: true,
     },
     icon_url: {
       type: "varchar(255)",
@@ -505,6 +471,5 @@ exports.down = (pgm) => {
   pgm.dropType("configuration_type");
   pgm.dropTable("contact_type");
   pgm.dropTable("currency");
-  pgm.dropTable("password_reset_token");
   pgm.dropTable("administrator");
 };

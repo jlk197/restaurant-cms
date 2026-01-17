@@ -131,6 +131,15 @@ app.post("/api/administrators", authenticateToken, async (req, res) => {
   try {
     const { name, surname, email, password } = req.body;
 
+    // Validate password strength
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        success: false,
+        error: "Password must be at least 8 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character (@$!%*?&)"
+      });
+    }
+
     // Hash password before saving
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -315,10 +324,10 @@ app.post("/api/administrators/forgot-password", async (req, res) => {
     const resetToken = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 3600000); // 1 hour from now
 
-    // Store token in database
+    // Store token in administrator table
     await query(
-      "INSERT INTO password_reset_token (administrator_id, email, token, expires_at) VALUES ($1, $2, $3, $4)",
-      [admin.id, email, resetToken, expiresAt]
+      "UPDATE administrator SET password_reset_token = $1, password_reset_token_expires_at = $2 WHERE id = $3",
+      [resetToken, expiresAt, admin.id]
     );
 
     // Create reset URL
@@ -372,37 +381,36 @@ app.post("/api/administrators/reset-password", async (req, res) => {
       return res.status(400).json({ success: false, error: "Token and new password are required" });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ success: false, error: "Password must be at least 6 characters long" });
+    // Validate password strength (same as admin creation)
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        error: "Password must be at least 8 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character (@$!%*?&)"
+      });
     }
 
-    // Find valid token
-    const tokenResult = await query(
-      "SELECT * FROM password_reset_token WHERE token = $1 AND used = false AND expires_at > NOW()",
-      [token]
-    );
-
-    if (tokenResult.rows.length === 0) {
-      return res.status(400).json({ success: false, error: "Invalid or expired reset token" });
-    }
-
-    const resetToken = tokenResult.rows[0];
-
-    // Hash new password
+    // Hash new password first
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    // Update administrator password
-    await query(
-      "UPDATE administrator SET password = $1 WHERE id = $2",
-      [hashedPassword, resetToken.administrator_id]
+    // Use a single UPDATE query that validates token and updates password atomically
+    // This ensures the token can only be used once (one-time use)
+    const updateResult = await query(
+      `UPDATE administrator
+       SET password = $1,
+           password_reset_token = NULL,
+           password_reset_token_expires_at = NULL
+       WHERE password_reset_token = $2
+         AND password_reset_token_expires_at > NOW()
+       RETURNING id`,
+      [hashedPassword, token]
     );
 
-    // Mark token as used
-    await query(
-      "UPDATE password_reset_token SET used = true WHERE id = $1",
-      [resetToken.id]
-    );
+    // If no rows were updated, token was invalid, expired, or already used
+    if (updateResult.rows.length === 0) {
+      return res.status(400).json({ success: false, error: "Invalid or expired reset token" });
+    }
 
     res.json({
       success: true,
