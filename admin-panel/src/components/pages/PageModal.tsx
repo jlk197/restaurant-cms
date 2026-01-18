@@ -176,7 +176,11 @@ export default function PageModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={closeModal} className="max-w-2xl p-6 mx-4">
+    <Modal 
+      isOpen={isOpen} 
+      onClose={closeModal} 
+      className="max-w-2xl p-6 mx-4 max-h-[90vh] overflow-y-auto"
+    >
       <h4 className="text-xl font-semibold text-gray-800 dark:text-white mb-6">
         {formData.id ? "Edit Page" : "Add New Page"}
       </h4>

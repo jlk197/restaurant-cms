@@ -114,7 +114,7 @@ export default function MenuModal({ isOpen, closeModal, onSuccess, itemToEdit }:
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={closeModal} className="max-w-xl p-6">
+    <Modal isOpen={isOpen} onClose={closeModal} className="max-w-2xl p-6 mx-4 max-h-[90vh] overflow-y-auto">
       <h4 className="text-xl font-bold text-gray-800 dark:text-white mb-6">
         {formData.id ? "Edit Dish" : "Add New Dish"}
       </h4>
