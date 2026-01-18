@@ -78,7 +78,7 @@ export default function PageItemModal({ isOpen, closeModal, onSuccess, itemToEdi
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={closeModal} className="max-w-xl p-6">
+    <Modal isOpen={isOpen} onClose={closeModal} className="max-w-2xl p-6 mx-4 max-h-[90vh] overflow-y-auto">
       <h4 className="text-xl font-bold mb-6 dark:text-white">
         {formData.id ? "Edit section" : "Add section"}
       </h4>

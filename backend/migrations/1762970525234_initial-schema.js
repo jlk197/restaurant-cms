@@ -244,6 +244,11 @@ exports.up = (pgm) => {
       notNull: true,
       default: true,
     },
+    is_visible_in_menu: {
+      type: "boolean",
+      notNull: true,
+      default: true,
+    },
     creation_time: {
       type: "timestamp",
       notNull: true,
