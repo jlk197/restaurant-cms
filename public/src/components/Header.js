@@ -116,9 +116,10 @@ const Header = ({ navigation = [], config = {} }) => {
                   if (hasChildren) {
                     return (
                       <li key={item.id} className="submenu">
-                        <a href="#!" onClick={(e) => e.preventDefault()}>
-                            {item.title}
-                        </a>
+                        {/* --- ZMIANA TUTAJ --- */}
+                        {/* Zamiast <a href="#!"...>, używamy renderLinkTag, żeby rodzic też był linkiem */}
+                        {renderLinkTag(item)}
+                        
                         <ul>
                           {item.children.map((child) => (
                             <li key={child.id}>

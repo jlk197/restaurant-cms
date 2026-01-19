@@ -498,24 +498,41 @@ app.put("/api/content/:id/settings", authenticateToken, async (req, res) => {
   }
 });
 
-// Get all content
+// Get all content (Poprawiona wersja uwzględniająca page_item)
 app.get("/api/content/available", async (req, res) => {
   try {
     const result = await query(`
       SELECT 
         pc.id, pc.item_type,
+        
+        -- Kucharze
         c.name as chef_name, c.surname as chef_surname,
-        m.name as menu_name
+        
+        -- Menu
+        m.name as menu_name,
+        
+        -- Page Item (To zostało dodane)
+        pi.title as page_item_title
+
       FROM page_content pc
       LEFT JOIN chef_item c ON pc.id = c.id
       LEFT JOIN menu_item m ON pc.id = m.id
+      LEFT JOIN page_item pi ON pc.id = pi.id  -- <--- Kluczowe łączenie
       ORDER BY pc.id DESC
     `);
     
     const formatted = result.rows.map(row => {
+      // Domyślna etykieta (fallback)
       let label = `ID: ${row.id} (${row.item_type})`;
-      if (row.chef_name) label = `👨‍🍳 ${row.chef_name} ${row.chef_surname}`;
-      else if (row.menu_name) label = `🍽️ ${row.menu_name}`;
+
+      // Logika przypisywania ładnych nazw
+      if (row.chef_name) {
+        label = `👨‍🍳 ${row.chef_name} ${row.chef_surname}`;
+      } else if (row.menu_name) {
+        label = `🍽️ ${row.menu_name}`;
+      } else if (row.page_item_title) {
+        label = `📄 ${row.page_item_title}`; // <--- Obsługa nazwy page_item
+      }
       
       return {
         id: row.id,
@@ -526,6 +543,7 @@ app.get("/api/content/available", async (req, res) => {
 
     res.json({ success: true, data: formatted });
   } catch (error) {
+    console.error("Błąd api/content/available:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -599,7 +617,7 @@ app.get("/api/pages", async (req, res) => {
   }
 });
 
-// --- POBIERANIE JEDNEJ STRONY (Z naprawionym odczytem JSON) ---
+// --- POBIERANIE JEDNEJ STRONY (TUTAJ BYŁ PROBLEM) ---
 app.get("/api/pages/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -620,13 +638,37 @@ app.get("/api/pages/:id", async (req, res) => {
     let contents = [];
 
     if (Array.isArray(contentIds) && contentIds.length > 0) {
+      // --- POPRAWKA: Używamy JOINów tak jak w liście głównej ---
       const contentResult = await query(`
-        SELECT id, item_type 
-        FROM page_content 
-        WHERE id = ANY($1::int[])
+        SELECT pc.id, pc.item_type,
+               ci.name as chef_name, ci.surname as chef_surname,
+               mi.name as menu_name,
+               pi.title as page_item_title  -- <--- Pobieramy tytuł Page Item
+        FROM page_content pc
+        LEFT JOIN chef_item ci ON pc.id = ci.id
+        LEFT JOIN menu_item mi ON pc.id = mi.id
+        LEFT JOIN page_item pi ON pc.id = pi.id -- <--- Łączymy tabelę page_item
+        WHERE pc.id = ANY($1::int[])
       `, [contentIds]);
       
-      contents = contentResult.rows;
+      // Mapujemy wyniki, aby frontend dostał gotową nazwę z ikonką
+      contents = contentResult.rows.map(row => {
+          let displayName = row.item_type; // Domyślna wartość (fallback)
+
+          if (row.chef_name) {
+              displayName = `👨‍🍳 ${row.chef_name} ${row.chef_surname}`;
+          } else if (row.menu_name) {
+              displayName = `🍽️ ${row.menu_name}`;
+          } else if (row.page_item_title) {
+              displayName = `📄 ${row.page_item_title}`; // <--- Tutaj tworzymy ładną nazwę dla Page Item
+          }
+
+          return {
+              id: row.id,
+              item_type: row.item_type,
+              name: displayName // Frontend powinien wyświetlać to pole w modalu
+          };
+      });
     }
 
     res.json({ 
@@ -670,7 +712,7 @@ app.get("/api/pages/slug/:slug", async (req, res) => {
             SELECT 
                 pc.item_type,
                 pc.image_url as content_image,
-                pc.is_active,  -- <--- POBIERAMY STATUS Z PAGE_CONTENT
+                pc.is_active,
 
                 -- Kucharz
                 ci.id as chef_id, ci.name as chef_name, ci.surname as chef_surname, 
@@ -678,7 +720,8 @@ app.get("/api/pages/slug/:slug", async (req, res) => {
 
                 -- Menu
                 mi.id as menu_id, mi.name as menu_name, mi.description as menu_desc,
-                mi.price, 
+                mi.price,
+                c.code as currency_code,
                 
                 -- Page Item
                 pi.id as item_id, 
@@ -690,6 +733,7 @@ app.get("/api/pages/slug/:slug", async (req, res) => {
             LEFT JOIN chef_item ci ON pc.id = ci.id
             LEFT JOIN menu_item mi ON pc.id = mi.id
             LEFT JOIN page_item pi ON pc.id = pi.id
+            LEFT JOIN currency c ON mi.currency_id = c.id
             WHERE pc.id = ANY($1::int[])
         `, [contentIds]);
 
@@ -713,8 +757,9 @@ app.get("/api/pages/slug/:slug", async (req, res) => {
             else if (type.includes('menu') && row.menu_name) {
                 menu_items.push({
                     id: row.menu_id, 
-                    name: row.menu_name, description: row.menu_desc, price: row.price, currency_code: "$", 
+                    name: row.menu_name, description: row.menu_desc, price: row.price, 
                     image_url: row.content_image,
+                    currency_code: row.currency_code,
                     is_active: isActiveStatus // <--- Przypisanie
                 });
             } 

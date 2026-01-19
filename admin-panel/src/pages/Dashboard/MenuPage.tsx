@@ -36,7 +36,6 @@ export default function MenuPage() {
   useEffect(() => { fetchMenu(); }, [fetchMenu]);
 
   const handleDelete = async (id: number) => {
-    if(!window.confirm("Delete this dish?")) return;
     await menuService.delete(id);
     fetchMenu();
   };

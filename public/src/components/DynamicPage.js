@@ -11,15 +11,20 @@ const DynamicPage = () => {
 
   useEffect(() => {
     setLoading(true);
+    // Pobieramy slug. Jeśli strona główna ma podstrony (np. /about/team), 
+    // slug może zawierać ukośniki.
     const safeSlug = (slug || "").replace(/^\//, ""); 
 
-    fetch(`http://localhost:5000/api/pages/slug/${safeSlug}`)
+    // Używamy encodeURIComponent, aby bezpiecznie przesłać slug z ukośnikami do API
+    fetch(`http://localhost:5000/api/pages/slug/${encodeURIComponent(safeSlug)}`)
       .then(res => res.json())
       .then(res => {
         if (res.success) {
           setPageData(res.data);
         } else {
           console.error("Page error:", res.error);
+          // Opcjonalnie: Przekieruj na 404 jeśli nie znaleziono
+          // navigate("/404"); 
         }
       })
       .catch(err => console.error("Fetch error:", err))
@@ -124,7 +129,6 @@ const DynamicPage = () => {
         margin: 0 auto;
         padding: 40px 20px; 
         
-        /* Zapobieganie dzieleniu słów */
         overflow-wrap: normal !important; 
         word-wrap: normal !important;
         word-break: normal !important; 
@@ -132,7 +136,6 @@ const DynamicPage = () => {
         white-space: normal !important;
     }
 
-    /* Style dla dzieci wewnątrz opisu (reset paddingów) */
     .desc-content, 
     .desc-content * { 
         font-size: 24px !important;
@@ -147,7 +150,6 @@ const DynamicPage = () => {
         max-width: 100% !important;
         width: auto !important;
         
-        /* Powtórzenie reguł łamania tekstu */
         word-break: normal !important;
         hyphens: none !important;
     }
@@ -205,7 +207,6 @@ const DynamicPage = () => {
   };
 
   const renderMenuItems = (items) => {
-    // FILTROWANIE POLE ACTIVE
     const activeItems = (items || []).filter(item => item.is_active !== false);
     if (activeItems.length === 0) return null;
 
@@ -236,7 +237,6 @@ const DynamicPage = () => {
   };
 
   const renderChefs = (chefs) => {
-    // FILTROWANIE POLE ACTIVE
     const activeChefs = (chefs || []).filter(item => item.is_active !== false);
     if (activeChefs.length === 0) return null;
 
@@ -266,7 +266,6 @@ const DynamicPage = () => {
   };
 
   const renderPageItems = (items) => {
-    // FILTROWANIE POLE ACTIVE
     const activeItems = (items || []).filter(item => item.is_active !== false);
     if (activeItems.length === 0) return null;
 

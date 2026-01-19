@@ -28,7 +28,6 @@ export default function PageItemPage() {
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
   const handleDelete = async (id: number) => {
-    if(!window.confirm("Are you sure about deleting this section?")) return;
     await pageItemService.delete(id);
     fetchItems();
   };

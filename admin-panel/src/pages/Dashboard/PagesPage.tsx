@@ -68,15 +68,11 @@ const fetchPages = useCallback(async () => {
   };
 
   const handleEdit = (page: Page) => {
-    setPageToEdit(page); // Przekazujemy obiekt do edycji
+    setPageToEdit(page);
     setIsModalOpen(true);
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this page? This cannot be undone.")) {
-      return;
-    }
-
     try {
       const res = await pageService.delete(id);
       if (res.success) {

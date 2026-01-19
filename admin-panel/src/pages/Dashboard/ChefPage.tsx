@@ -68,7 +68,6 @@ export default function ChefPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if(!window.confirm("Are you sure you want to remove this chef?")) return;
     try {
         await chefService.delete(id); 
         fetchChefs();

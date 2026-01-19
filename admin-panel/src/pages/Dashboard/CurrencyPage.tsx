@@ -22,7 +22,6 @@ export default function CurrencyPage() {
   useEffect(() => { fetchCurrencies(); }, []);
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Usunąć walutę? Jeśli jest używana w menu, operacja się nie uda.")) return;
     await currencyService.delete(id);
     fetchCurrencies();
   };
