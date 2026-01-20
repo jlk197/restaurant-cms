@@ -47,7 +47,7 @@ const Reservation = ({ contactItems = [], config = {} }) => {
               {config.contact_us_content && (
                 <div
                   className="quill-content"
-                  dangerouslySetInnerHTML={{ __html: config.about_us_content }}
+                  dangerouslySetInnerHTML={{ __html: config.contact_us_content }}
                 />
               )}
               {Object.keys(groupedContacts).length > 0 && (

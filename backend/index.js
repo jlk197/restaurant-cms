@@ -1352,7 +1352,7 @@ app.get("/api/configuration", async (req, res) => {
       FROM configuration c
       LEFT JOIN administrator a1 ON c.creator_id = a1.id
       LEFT JOIN administrator a2 ON c.last_modificator_id = a2.id
-      ORDER BY c.key
+      ORDER BY c.creation_time
     `);
     res.json({ success: true, data: result.rows });
   } catch (error) {
